@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Singularity Outpost: Galaxy Edition</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js" onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js';document.head.appendChild(s)"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none}
+  input{user-select:text}
+  body{overflow:hidden;background:#020308;color:#e2e8f0;font-family:monospace}
+  canvas{display:block}
+  .overlay{position:fixed;inset:0;background:rgba(2,3,8,.95);display:flex;justify-content:center;align-items:center;z-index:100}
+  .menu-card{background:#090d16;border:2px solid #38bdf8;border-radius:12px;padding:24px;width:380px;max-width:94vw;box-shadow:0 0 30px rgba(56,189,248,.3);text-align:center}
+  .menu-card h1{color:#38bdf8;font-size:18px;margin-bottom:16px;letter-spacing:1px}
+  .input-field{width:100%;padding:10px;background:#111827;border:1px solid #334155;border-radius:6px;color:#fff;font-family:monospace;margin-bottom:12px;outline:none}
+  .input-field:focus{border-color:#38bdf8}
+  .color-picker{display:flex;justify-content:space-between;align-items:center;margin:10px 0;font-size:12px;color:#94a3b8}
+  .color-picker input{background:none;border:none;width:32px;height:32px;cursor:pointer}
+  #hud{position:fixed;top:8px;left:8px;background:rgba(5,10,20,.92);padding:10px 14px;border:1px solid #38bdf8;border-radius:6px;font-size:11px;z-index:5;line-height:1.7;box-shadow:0 0 15px rgba(56,189,248,.2)}
+  #ui{position:fixed;bottom:8px;left:8px;background:rgba(5,10,20,.92);padding:10px 14px;border:1px solid #334155;border-radius:6px;font-size:10px;color:#94a3b8;line-height:1.6;z-index:5;max-width:min(760px,62vw)}
+  #map{position:fixed;bottom:8px;right:8px;border:1px solid #38bdf8;background:#020614;z-index:5}
+  .panel{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:540px;max-width:94vw;max-height:84vh;overflow:auto;background:#090d16;border:2px solid #38bdf8;border-radius:8px;padding:16px;z-index:20;box-shadow:0 0 25px rgba(56,189,248,.3);font-size:11px}
+  .panel h3{color:#38bdf8;margin:12px 0 4px;font-size:12px}
+  .phead{color:#38bdf8;display:flex;justify-content:space-between;margin-bottom:8px;font-size:12px}
+  .x{cursor:pointer;color:#ef4444;font-weight:bold}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#111827;border:1px solid #1e293b;padding:6px 8px;margin:4px 0;border-radius:4px;font-size:11px}
+  .row .grow{flex:1}
+  .sbtn{background:#0284c7;color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer;font-family:monospace;font-size:10px;font-weight:bold;margin-left:4px}
+  .sbtn:hover{background:#0369a1}.sbtn.red{background:#b91c1c}.sbtn.green{background:#047857}.sbtn.gold{background:#a16207}
+  .sbtn:disabled{opacity:.35;cursor:default}
+  .btn{background:#0284c7;color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;font-family:monospace;font-weight:bold;width:100%;margin-top:8px;transition:0.2s}
+  .btn:hover{background:#0369a1}
+  .bar{width:100%;height:8px;background:#1e293b;margin-top:6px;border-radius:4px;overflow:hidden}
+  .fill{height:100%;background:#10b981;width:0%}
+  .pvp-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-weight:bold;font-size:10px}
+  .pvp-on{background:#ef4444;color:#fff}.pvp-off{background:#10b981;color:#fff}
+  .mini{width:110px;padding:4px;background:#111827;border:1px solid #334155;color:#fff;border-radius:4px;font-family:monospace;font-size:11px}
+  #chat{position:fixed;left:8px;bottom:132px;width:340px;z-index:6;font-size:11px;pointer-events:none}
+  #chat-log{max-height:150px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+  #chat-log .cm{background:rgba(5,10,20,.72);padding:2px 6px;margin-top:1px;border-radius:3px;word-break:break-word}
+  #chat-log .cm.sys{color:#facc15;font-style:italic}
+  #chat-log .cm.old{display:none}
+  #chat.open #chat-log{overflow-y:auto;pointer-events:auto}
+  #chat.open #chat-log .cm.old{display:block}
+  #chat-input{display:none;pointer-events:auto;width:100%;margin-top:4px;padding:6px;background:#111827;border:1px solid #38bdf8;border-radius:4px;color:#fff;font-family:monospace;outline:none}
+  #chat.open #chat-input{display:block}
+  #toasts{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:150;display:flex;flex-direction:column;gap:6px;align-items:center;max-width:90vw}
+  .toast{background:rgba(9,13,22,.95);border:1px solid #38bdf8;border-radius:6px;padding:6px 12px;font-size:11px;box-shadow:0 0 12px rgba(56,189,248,.3)}
+  #os{width:480px}
+  .log{background:#05080f;border:1px solid #1e293b;border-radius:4px;height:110px;overflow-y:auto;padding:4px;margin:4px 0;font-size:11px}
+  .log div{margin:1px 0;word-break:break-word}
+  .pal{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0;width:150px}
+  .pal div{width:22px;height:22px;border:2px solid #334155;cursor:pointer;border-radius:3px}
+  ul.soon{text-align:left;font-size:11px;color:#cbd5e1;margin:6px 0 6px 18px;line-height:1.7}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="menu-overlay">
+  <div class="menu-card">
+    <h1>SINGULARITY OUTPOST<br>GALAXY EDITION</h1>
+    <input type="text" id="player-name" class="input-field" placeholder="Commander Name" value="Explorer_1">
+    <input type="text" id="room-code" class="input-field" placeholder="Private world key (blank = create new world)" value="" autocomplete="off">
+    <div style="font-size:10px;color:#94a3b8;text-align:left;margin:-5px 0 10px">Leave blank to create a new private world, or enter a friend's private key to join. No public lobby list.</div>
+    <div class="color-picker"><span>Suit Color:</span><input type="color" id="suit-color" value="#38bdf8"></div>
+    <div class="color-picker"><span>Visor Glow:</span><input type="color" id="visor-color" value="#00ffcc"></div>
+    <button class="btn" id="start-btn">LAUNCH PRIVATE WORLD</button>
+    <button class="btn" id="public-start-btn" style="background:#047857">JOIN PUBLIC MAIN SERVER</button>
+    <div style="font-size:10px;color:#94a3b8;margin-top:7px">Public Main is one shared world. No PvP; player structures are protected.</div>
+  </div>
+</div>
+
+<div class="overlay" id="welcome" style="display:none;z-index:120">
+  <div class="menu-card" style="width:540px;text-align:left;max-height:90vh;overflow:auto">
+    <h1 style="text-align:center">WELCOME, COMMANDER</h1>
+    <div style="color:#10b981;font-weight:bold;font-size:12px">LIVE NOW &mdash; v3.0 Galaxy Edition</div>
+    <ul class="soon">
+      <li>Round planets, a galaxy-centre black hole, sky that lights up on landing</li>
+      <li>New world appears every 30 minutes</li>
+      <li>Private save-file worlds plus one shared Public Main Server</li>
+      <li>Public Main: PvP disabled, structures protected, friend-only wiring permissions</li>
+      <li>Missile Centers &amp; Nukes (PvP only), Shield Generators, planet Domes</li>
+      <li>Rectennas, Battery Banks &amp; selling power to other players</li>
+      <li>Antenna beams tower-to-tower + PC relay chat between planets</li>
+      <li>Free-place floors &amp; walls, custom structure designer, mega structures</li>
+    </ul>
+    <div style="color:#facc15;font-weight:bold;font-size:12px;margin-top:10px">UPDATES COMING IN THE FUTURE</div>
+    <ul class="soon">
+      <li>Planet trading &amp; a galaxy marketplace</li>
+      <li>Clans, alliances and shared defence grids</li>
+      <li>Orbital stations &amp; ship-to-ship combat</li>
+      <li>Terraforming and biomes</li>
+      <li>Export/import worlds and continue them offline or with invited friends</li>
+      <li>Touch / mobile controls</li>
+      <li>More mega structures</li>
+    </ul>
+    <div style="font-size:10px;color:#64748b">Press <b>I</b> any time to reopen this menu. Worlds are also backed up locally every 30 seconds.</div>
+    <div style="border:1px solid #334155;background:#080f1d;padding:10px;border-radius:6px;margin:10px 0"><div style="font-size:10px;color:#94a3b8;margin-bottom:5px">YOUR PRIVATE WORLD KEY — SHARE ONLY WITH PEOPLE YOU WANT TO INVITE</div><div id="private-key-display" style="font: bold 13px monospace;color:#facc15;overflow-wrap:anywhere">Generating...</div><button class="sbtn" id="copy-private-key" style="margin-top:7px">COPY PRIVATE KEY</button></div>
+    <button class="btn" id="import-save-btn" style="background:#a16207">IMPORT SAVED GAME (EMPTY ROOM ONLY)</button>
+    <button class="btn" id="restore-local-btn" style="background:#047857">RESTORE LAST AUTO-SAVE</button>
+    <input id="import-save-file" type="file" accept=".json,application/json" style="display:none">
+    <button class="btn" id="welcome-btn">ENTER THE OUTPOST</button>
+  </div>
+</div>
+
+<div id="hud">Initialising P2P...</div>
+
+<div id="ui">
+  <strong>[A/D]</strong> Walk &bull; <strong>[W]</strong> Jet/Thrust &bull; <strong>[SPACE]</strong> Mine &bull; <strong>[E]</strong> Board/Exit rocket &bull; <strong>[P]</strong> PvP &bull; <strong>[Enter]</strong> Chat &bull; <strong>[H]</strong> Friends &bull; <strong>[G]</strong> Power grid &bull; <strong>[M]</strong> Missiles &bull; <strong>[B]</strong> Build menu<br>
+  <strong>[1]</strong> Solar <strong>[2]</strong> Lab <strong>[3]</strong> Antenna <strong>[4]</strong> Shipyard <strong>[5]</strong> PC <strong>[6]</strong> Teleporter <strong>[7]</strong> Floor <strong>[8]</strong> Wall <strong>[9]</strong> Server <strong>[0]</strong> HQ <strong>[-]</strong> Rectenna <strong>[=]</strong> Battery <strong>[ [ ]</strong> Silo <strong>[ ] ]</strong> Shield<br>
+  <strong>[CLICK]</strong> Build (Shift = keep placing) &bull; <strong>[C]</strong> Wire &bull; <strong>[F]</strong> Use PC / Teleporter / Silo / Rectenna &bull; <strong>[U]</strong> Upgrade &bull; <strong>[X]</strong> Demolish &bull; <strong>[V]</strong> Beams &bull; <strong>[R]</strong> Orbital Ring &bull; <strong>[K]</strong> Export
+</div>
+
+<div id="chat"><div id="chat-log"></div><input id="chat-input" maxlength="140" placeholder="Say something... (Enter to send, Esc to close)" autocomplete="off"></div>
+<div id="toasts"></div>
+
+<div id="os" class="panel">
+  <div class="phead"><strong>OUTPOST OS // NETWORK &amp; DATA CENTER</strong><span class="x" id="close-os-btn">[X]</span></div>
+  <div id="os-stat" style="color:#94a3b8;margin-bottom:8px"></div>
+  <div id="os-files"></div>
+  <div class="bar"><div class="fill" id="tx-bar"></div></div>
+  <div id="tx-txt" style="color:#10b981;margin-top:6px">IDLE</div>
+  <h3>BEAM COMMS // PLANET-TO-PLANET RELAY CHAT</h3>
+  <div id="comm-stat" style="color:#94a3b8"></div>
+  <div class="log" id="comm-log"></div>
+  <div style="display:flex;gap:4px"><input id="comm-input" class="input-field" style="margin:0" maxlength="140" placeholder="Send over the antenna beam network..." autocomplete="off"><button class="sbtn" id="comm-send">SEND</button></div>
+</div>
+
+<div id="friends" class="panel">
+  <div class="phead"><strong>FRIENDS</strong><span class="x" data-close="friends">[X]</span></div>
+  <div class="row"><span>My friend code: <b id="my-code" style="color:#facc15"></b></span><button class="sbtn" id="copy-code">COPY</button></div>
+  <div style="display:flex;gap:4px"><input id="add-code" class="input-field" style="margin:0" placeholder="Enter a friend's code" autocomplete="off"><button class="sbtn green" id="add-btn">ADD</button></div>
+  <h3>REQUESTS</h3><div id="f-req"></div>
+  <h3>INVITES</h3><div id="f-inv"></div>
+  <h3>FRIENDS LIST</h3><div id="f-list"></div>
+  <h3>PLAYERS IN THIS ROOM</h3><div id="f-room"></div>
+</div>
+
+<div id="power" class="panel">
+  <div class="phead"><strong>POWER GRID // RECTENNA MARKET</strong><span class="x" data-close="power">[X]</span></div>
+  <div id="p-stat" style="color:#94a3b8"></div>
+  <div style="display:flex;gap:8px;align-items:center;margin:8px 0">Price $/min <input id="p-price" class="mini" type="number" value="60" min="6"> Rate /s <input id="p-rate" class="mini" type="number" value="20" min="5" max="200"></div>
+  <div style="color:#64748b;font-size:10px">You need a Rectenna to send, buyers need one to receive. Powered Rectennas can be wired (C) to Labs / PCs / Servers.</div>
+  <h3>OFFERS TO YOU</h3><div id="p-in"></div>
+  <h3>CONTRACTS</h3><div id="p-active"></div>
+  <h3>SELL POWER TO</h3><div id="p-players"></div>
+</div>
+
+<div id="missile" class="panel">
+  <div class="phead"><strong>MISSILE COMMAND (PvP ONLY)</strong><span class="x" data-close="missile">[X]</span></div>
+  <div id="m-info" style="color:#94a3b8;margin-bottom:6px"></div>
+  <div style="color:#64748b;font-size:10px">Missile $250 &bull; Nuke $2,000 (needs a Missile Center level 3). Only players with PvP ON can be hit. Shields &amp; Domes absorb strikes.</div>
+  <div id="m-list"></div>
+</div>
+
+<div id="buildp" class="panel" style="width:600px">
+  <div class="phead"><strong>BUILD MENU</strong><span class="x" data-close="buildp">[X]</span></div>
+  <h3>STRUCTURES (click, then click the world to place)</h3><div id="b-list"></div>
+  <h3>MEGA STRUCTURES (one of each per planet &bull; needs your HQ on that planet)</h3><div id="b-mega"></div>
+  <h3>STRUCTURE DESIGNER</h3>
+  <div style="display:flex;gap:12px;flex-wrap:wrap">
+    <canvas id="designer" width="240" height="240" style="border:1px solid #334155;cursor:crosshair"></canvas>
+    <div><div class="pal" id="pal"></div>
+      <input id="d-name" class="input-field" style="width:150px;margin:4px 0" placeholder="Design name" maxlength="20">
+      <button class="sbtn green" id="d-save">SAVE DESIGN</button><button class="sbtn red" id="d-clear">CLEAR</button></div>
+  </div>
+  <h3>MY DESIGNS</h3><div id="b-custom"></div>
+</div>
+
+<canvas id="c"></canvas>
+<canvas id="map" width="240" height="120"></canvas>
+
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const TAU=Math.PI*2;
+const nA=a=>((a+Math.PI)%TAU+TAU)%TAU-Math.PI;
+function el(t,a,...k){const e=document.createElement(t);if(a)for(const i in a){if(i==='on')for(const ev in a.on)e.addEventListener(ev,a.on[ev]);else if(i==='text')e.textContent=a[i];else if(i==='style')e.style.cssText=a[i];else e[i]=a[i]}for(const c of k)if(c)e.append(c);return e}
+function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}}
+
+// ---------- identity ----------
+const uid=(()=>{let u=null;try{u=localStorage.getItem('outpost_uid')}catch(e){}if(!u){const ch='abcdefghjkmnpqrstuvwxyz23456789';u=Array.from({length:8},()=>ch[Math.floor(Math.random()*ch.length)]).join('');try{localStorage.setItem('outpost_uid',u)}catch(e){}}return u})();
+
+// ---------- networking state ----------
+let peer=null,inbox=null,inboxOk=false,myPeerId=null,hostConn=null,isHost=false,started=false,welcomeOpen=false;
+const peers={},remotePlayers={};
+let playerName='Explorer_1',sessionKey='',currentRoomId='',suitColor='#38bdf8',visorColor='#00ffcc';
+const PUBLIC_ROOM_KEY='OUTPOST-MAIN-PUBLIC-V1';let isPublicWorld=false;
+const PRIVATE_KEY_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function makePrivateKey(){const bytes=new Uint8Array(24);if(window.crypto&&crypto.getRandomValues)crypto.getRandomValues(bytes);else for(let i=0;i<bytes.length;i++)bytes[i]=Math.floor(Math.random()*256);return Array.from(bytes,b=>PRIVATE_KEY_CHARS[b%PRIVATE_KEY_CHARS.length]).join('');}
+function cleanPrivateKey(v){return String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,48);}
+function privatePeerId(key){return 'outpost-private-'+String(key).toLowerCase();}
+function showPrivateKey(){const d=$('private-key-display');if(d)d.textContent=sessionKey||'Not generated yet';}
+
+// ---------- game state ----------
+const c=$('c'),ctx=c.getContext('2d'),mc=$('map'),mctx=mc.getContext('2d'),hud=$('hud');
+let W=c.width=innerWidth,H=c.height=innerHeight;
+onresize=()=>{W=c.width=innerWidth;H=c.height=innerHeight};
+const keys={},mods=[],wires=[],planets=[],crysMap={},missiles=[],blasts=[],contracts={},commLog=[];
+const antLinks=[];let antsCache=[];
+let money=1500,parts=4,research=0,last=performance.now(),energy=0,camRot=0;
+const AUTOSAVE_KEY='outpost_autosave_v1';let lastAutoSave=0,importedThisSession=false;
+let ghost=null,wFrom=null,activePC=null,txJob=null,autoUntil=0,overUntil=0;
+let pvpEnabled=false,showBeams=true,mouseSX=innerWidth/2,mouseSY=innerHeight*.65,flash=0,lastRelay=0,mining=null;
+const SPAWN_MS=30*60*1000;let nextSpawn=Date.now()+SPAWN_MS;
+
+const FILES=[
+  {id:'mine',name:'auto_harvest.exe',size:120,desc:'Automated Drones (+ $50/s for 45s)'},
+  {id:'over',name:'quantum_overclock.sys',size:200,desc:'2x Lab Money & Research (45s)'},
+  {id:'scan',name:'orbital_scan.dat',size:160,desc:'Instant +$450 Telemetry Bounty'},
+  {id:'flux',name:'array_booster.bin',size:260,desc:'Antenna signal range +50% (yours)'}
+];
+const DEFS={
+  solar:{n:'Solar Array',c:80,hp:120},lab:{n:'Science Lab',c:150,hp:140},ant:{n:'Antenna',c:120,hp:100},
+  pad:{n:'Shipyard',c:500,hp:200},pc:{n:'PC Terminal',c:140,hp:100},tele:{n:'Teleporter',c:220,hp:120},
+  floor:{n:'Floor Slab',c:40,hp:60},wall:{n:'Wall Pillar',c:50,hp:90},server:{n:'Relay Server',c:350,hp:160},
+  hq:{n:'Outpost HQ',c:800,hp:600},rect:{n:'Rectenna',c:260,hp:120},batt:{n:'Battery Bank',c:180,hp:120},
+  silo:{n:'Missile Center',c:600,hp:250},shield:{n:'Shield Generator',c:400,hp:150},custom:{n:'Custom',c:0,hp:80}
+};
+const QUICK={Digit1:'solar',Digit2:'lab',Digit3:'ant',Digit4:'pad',Digit5:'pc',Digit6:'tele',Digit7:'floor',Digit8:'wall',Digit9:'server',Digit0:'hq',Minus:'rect',Equal:'batt',BracketLeft:'silo',BracketRight:'shield'};
+const MEGAS={
+  ring:{n:'Orbital Ring',c:2500,d:'Free teleporter pair + teleport to other ringed planets'},
+  dyson:{n:'Dyson Swarm',c:6000,d:'Solar power x3, labs x1.5 on this planet'},
+  dome:{n:'Planetary Dome',c:5000,d:'Absorbs missiles & nukes for your structures (1500 HP, regens)'},
+  core:{n:'Quantum Core',c:7000,d:'Your labs on this planet earn x2'}
+};
+const MISSILE_COST=250,NUKE_COST=2000;
+
+const stars=Array.from({length:320},()=>({x:Math.random()*4e3,y:Math.random()*4e3,s:Math.random()*2+.5,v:12+Math.random()*24}));
+
+// ---------- planets ----------
+const P=id=>planets.find(p=>p.id===id);
+function rngFrom(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=h<<13|h>>>19}let a=h>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function genCrys(p){const r=rngFrom(p.id),n=Math.floor(p.R/55);return Array.from({length:n},()=>({th:r()*TAU,hp:40,v:Math.round(55+(p.tier||0)*25),dead:0}))}
+function mkPlanet(d){const p={...d};crysMap[p.id]=genCrys(p);return p}
+const DEFAULT_PLANETS=()=>[
+  {id:'p0',name:'PRIME',cx:8000,cy:0,R:1000,g:520,col:'#0f172a',line:'#38bdf8',sky1:'#0a2a6b',sky2:'#7dd3fc',tier:0},
+  {id:'p1',name:'MOON',cx:11600,cy:-900,R:650,g:190,col:'#1e293b',line:'#cbd5e1',sky1:'#1e293b',sky2:'#cbd5e1',tier:1},
+  {id:'p2',name:'ARES',cx:-6500,cy:5200,R:850,g:400,col:'#2a0d0d',line:'#f87171',sky1:'#6b1d0a',sky2:'#fdba74',tier:2}
+];
+function hsl(h,s,l){s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));return '#'+[f(0),f(8),f(4)].map(v=>Math.round(v*255).toString(16).padStart(2,'0')).join('')}
+function spawnPlanet(){
+  const n=planets.length,NAMES=['KEPLER','TITAN','ORION','VEGA','NOVA','HELIOS','ZENITH','CERES','DRACO','LYRA'];
+  let best=null;
+  for(let t=0;t<60&&!best;t++){
+    const R=600+Math.random()*900,dist=6500+Math.random()*(5000+n*600),ang=Math.random()*TAU,cx=Math.cos(ang)*dist,cy=Math.sin(ang)*dist;
+    if(dist<R+4000)continue;
+    if(planets.every(p=>Math.hypot(p.cx-cx,p.cy-cy)>p.R+R+2600))best={R,cx,cy};
+  }
+  if(!best){const ang=Math.random()*TAU,dist=16000+n*800;best={R:800,cx:Math.cos(ang)*dist,cy:Math.sin(ang)*dist}}
+  const hue=Math.floor(Math.random()*360);
+  const d={id:'p'+Date.now().toString(36),name:NAMES[n%NAMES.length]+'-'+(10+Math.floor(Math.random()*89)),cx:Math.round(best.cx),cy:Math.round(best.cy),R:Math.round(best.R),g:Math.round(240+best.R*.3),col:hsl(hue,45,10),line:hsl(hue,80,65),sky1:hsl(hue,70,22),sky2:hsl((hue+30)%360,85,72),tier:n};
+  planets.push(mkPlanet(d));
+  broadcastP2P({type:'new_planet',planet:d});
+  sys('NEW WORLD DISCOVERED: '+d.name);toast('A new world appeared: '+d.name);
+}
+
+// ---------- player / rocket ----------
+const pl={pid:'p0',th:-Math.PI/2,h:0,vt:0,vh:0,jet:100,dir:1,inShip:false,animTimer:0,x:0,y:0};
+const rk={built:false,x:0,y:0,vx:0,vy:0,a:0,fuel:100,landed:true,pid:'p0',th:0};
+function resetWorld(){
+  mods.length=0;wires.length=0;planets.length=0;missiles.length=0;blasts.length=0;commLog.length=0;
+  for(const k in contracts)delete contracts[k];for(const k in remotePlayers)delete remotePlayers[k];for(const k in crysMap)delete crysMap[k];
+  DEFAULT_PLANETS().forEach(d=>planets.push(mkPlanet(d)));
+  Object.assign(pl,{pid:'p0',th:-Math.PI/2,h:0,vt:0,vh:0,inShip:false});
+  Object.assign(rk,{built:false,landed:true,fuel:100,pid:'p0'});
+  nextSpawn=Date.now()+SPAWN_MS;
+}
+const polarToWorld=(pid,th,d)=>{const p=P(pid);return[p.cx+Math.cos(th)*d,p.cy+Math.sin(th)*d]};
+const arcD=(pid,a,b)=>Math.abs(nA(a-b))*(P(pid)?P(pid).R:1000);
+function modPos(m,extra){const p=P(m.pid);if(!p)return[0,0];return polarToWorld(m.pid,m.th,p.R+(m.h||0)+(extra||0))}
+function camPos(){return pl.inShip?[rk.x,rk.y]:[pl.x,pl.y]}
+function curPlanet(){
+  if(!pl.inShip)return P(pl.pid)||planets[0];
+  let b=planets[0],bd=1e18;for(const p of planets){const d=Math.hypot(rk.x-p.cx,rk.y-p.cy)-p.R;if(d<bd){bd=d;b=p}}return b;
+}
+function supportH(pid,th,hMax){let best=0;for(const m of mods)if(m.pid===pid&&m.t==='floor'&&m.h<=hMax+10&&arcD(pid,m.th,th)<38)best=Math.max(best,m.h);return best}
+const hasMega=(pid,k,owner)=>mods.some(m=>m.pid===pid&&m.t==='mega_'+k&&(!owner||m.o===owner));
+const isMega=m=>m.t.startsWith('mega_');
+
+// ---------- UI helpers ----------
+function toast(msg,btns){const t=document.createElement('div');t.className='toast';t.append(msg);(btns||[]).forEach(b=>t.append(el('button',{className:'sbtn',text:b[0],on:{click:()=>{b[1]();t.remove()}}})));$('toasts').append(t);setTimeout(()=>t.remove(),btns?15000:4500)}
+const chatLog=$('chat-log');
+function addChat(name,text,col,isSys){
+  const d=document.createElement('div');d.className='cm'+(isSys?' sys':'');
+  if(!isSys){const b=document.createElement('b');b.style.color=/^#[0-9a-f]{6}$/i.test(col||'')?col:'#38bdf8';b.textContent=name+': ';d.append(b)}
+  d.append(document.createTextNode(text));d.dataset.t=Date.now();chatLog.append(d);
+  while(chatLog.children.length>40)chatLog.firstChild.remove();chatLog.scrollTop=1e9;
+}
+const sys=t=>addChat('',t,null,true);
+setInterval(()=>{if($('chat').classList.contains('open'))return;for(const d of chatLog.children)if(Date.now()-d.dataset.t>15000)d.classList.add('old')},1000);
+function openChat(){for(const k in keys)keys[k]=false;$('chat').classList.add('open');$('chat-input').focus()}
+function closeChat(){$('chat-input').value='';$('chat-input').blur();$('chat').classList.remove('open')}
+function sendChat(t){addChat(playerName,t,suitColor);broadcastP2P({type:'chat',name:playerName,col:suitColor,text:t})}
+const PANELS=['friends','power','missile','buildp'];
+function closePanels(){PANELS.forEach(i=>$(i).style.display='none');closeOS()}
+function togglePanel(id){const open=$(id).style.display==='block';closePanels();if(!open){$(id).style.display='block';refreshPanel(id)}}
+function refreshPanel(id){if(id==='friends')renderFriends();if(id==='power')renderPower();if(id==='missile')renderMissile();if(id==='buildp')renderBuild()}
+document.querySelectorAll('[data-close]').forEach(e=>e.onclick=()=>{$(e.dataset.close).style.display='none'});
+setInterval(()=>{for(const id of PANELS)if($(id).style.display==='block'&&id!=='buildp')refreshPanel(id);if(activePC)renderOS()},600);
+function closeOS(){activePC=null;$('os').style.display='none';if(document.activeElement&&document.activeElement.id==='comm-input')document.activeElement.blur()}
+$('close-os-btn').onclick=closeOS;
+function showWelcome(v){welcomeOpen=v;$('welcome').style.display=v?'flex':'none'}
+$('welcome-btn').onclick=()=>showWelcome(false);
+$('copy-private-key').onclick=()=>{if(!sessionKey)return toast('No private key yet');if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(sessionKey).then(()=>toast('Private world key copied')).catch(()=>toast('Private key: '+sessionKey));else toast('Private key: '+sessionKey)};
+$('restore-local-btn').onclick=()=>{
+  if(!isHost||Object.keys(peers).length||Object.keys(remotePlayers).length)return toast('Restore locked: you must be hosting an empty room');
+  const backup=store(AUTOSAVE_KEY);if(!backup||!backup.save)return toast('No local recovery save found');
+  if(applySaveData(backup.save)){toast('Last local session restored');sys('Recovered local session from '+new Date(backup.savedAt).toLocaleString());broadcastP2P({type:'world_replace',save:makeSaveData()});}
+  else toast('The local recovery save could not be loaded');
+};
+$('import-save-btn').onclick=()=>{
+  const occupied=!isHost||Object.keys(peers).length>0||Object.keys(remotePlayers).length>0;
+  if(occupied)return toast('Import locked: this room must be hosted by you and have no other players');
+  $('import-save-file').click();
+};
+$('import-save-file').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];if(!file)return;
+  if(!isHost||Object.keys(peers).length||Object.keys(remotePlayers).length){toast('Import cancelled: room is no longer empty');e.target.value='';return}
+  try{const data=JSON.parse(await file.text());const previousKey=sessionKey;if(!applySaveData(data))throw new Error('Unsupported or incomplete save file');
+    importedThisSession=true;
+    if(data.privateKey){const importedKey=cleanPrivateKey(data.privateKey);if(importedKey&&importedKey!==previousKey){sessionKey=importedKey;currentRoomId=sessionKey;showPrivateKey();initP2P();}}
+    saveLocalSession();broadcastP2P({type:'world_replace',save:makeSaveData()});toast('Saved game imported into this empty room');sys('World imported: '+file.name);
+  }catch(err){toast('Could not import save: '+err.message)}e.target.value='';
+});
+
+function launchWorld(publicMode){
+  playerName=($('player-name').value||'Explorer_1').slice(0,16);
+  isPublicWorld=!!publicMode;
+  sessionKey=isPublicWorld?PUBLIC_ROOM_KEY:(cleanPrivateKey($('room-code').value)||makePrivateKey());
+  currentRoomId=sessionKey;
+  $('room-code').value=sessionKey;
+  suitColor=$('suit-color').value;visorColor=$('visor-color').value;
+  $('menu-overlay').style.display='none';started=true;resetWorld();initInbox();initP2P();showWelcome(true);
+  $('my-code').textContent=uid.toUpperCase();showPrivateKey();
+  if(isPublicWorld){pvpEnabled=false;toast('Connected to Public Main. PvP is disabled; structures are protected.');}
+}
+$('start-btn').onclick=()=>launchWorld(false);
+$('public-start-btn').onclick=()=>launchWorld(true);
+
+// ---------- mods ----------
+function newMod(t,pid,th,h,g){return{id:'m_'+uid+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),pid,th,h,t,lv:1,o:uid,hp:(DEFS[t]||{hp:800}).hp,r:t==='ant'?2800:0,g:g||undefined,act:false,p:0}}
+const cleanMod=m=>({id:m.id,pid:m.pid,th:m.th,h:m.h,t:m.t,lv:m.lv,o:m.o,hp:m.hp,r:m.r,g:m.g});
+function addMod(m,bc){mods.push(m);if(bc)broadcastP2P({type:'build_mod',mod:cleanMod(m)})}
+function canWireWith(m){if(!m||m.o===uid)return true;return friends.some(f=>f.uid===m.o)}
+function delMod(id,bc,force=false){
+  const target=mods.find(m=>m.id===id);if(isPublicWorld)return toast('Public Main structures cannot be destroyed');if(!force&&target&&target.o!==uid)return toast('You can only demolish your own structures');
+  for(let i=wires.length-1;i>=0;i--)if(wires[i].aId===id||wires[i].bId===id)wires.splice(i,1);
+  const i=mods.findIndex(m=>m.id===id);if(i>=0)mods.splice(i,1);
+  if(bc)broadcastP2P({type:'del_mod',id});
+}
+function nearMods(){return mods.filter(m=>m.pid===pl.pid&&!isMega(m)&&arcD(pl.pid,m.th,pl.th)<55&&Math.abs((m.h||0)-pl.h)<80).sort((a,b)=>arcD(pl.pid,a.th,pl.th)-arcD(pl.pid,b.th,pl.th))}
+function mouseWorld(){const[cx,cy]=camPos(),dx=mouseSX-W/2,dy=mouseSY-H*.65,cs=Math.cos(camRot),sn=Math.sin(camRot);return[cx+dx*cs+dy*sn,cy-dx*sn+dy*cs]}
+function placeInfo(){
+  const p=P(pl.pid),[mxw,myw]=mouseWorld(),dx=mxw-p.cx,dy=myw-p.cy,hh=Math.hypot(dx,dy)-p.R;
+  let th=Math.atan2(dy,dx);const step=12/p.R;th=Math.round(th/step)*step;
+  const free=['floor','wall','custom'].includes(ghost.t);
+  const h=free?Math.max(0,Math.round(hh/12)*12):supportH(pl.pid,th,Math.max(0,hh));
+  const valid=!pl.inShip&&hh>-30&&hh<900&&arcD(pl.pid,th,pl.th)<1800;
+  return{pid:pl.pid,th,h,valid};
+}
+function buyMega(k){
+  const d=MEGAS[k];if(pl.inShip)return toast('Land first');
+  if(!mods.some(m=>m.pid===pl.pid&&m.t==='hq'&&m.o===uid))return toast('Build your Outpost HQ on this planet first');
+  if(hasMega(pl.pid,k))return toast(d.n+' already exists on this planet');
+  if(money<d.c)return toast('Not enough money ($'+d.c+')');
+  money-=d.c;addMod(newMod('mega_'+k,pl.pid,pl.th,0),true);
+  if(k==='ring'){const p=P(pl.pid),off=260/p.R;addMod(newMod('tele',pl.pid,pl.th-off,0),true);addMod(newMod('tele',pl.pid,pl.th+off,0),true)}
+  toast(d.n+' constructed!');sys(playerName+' built the '+d.n+' on '+P(pl.pid).name);
+}
+
+// ---------- input ----------
+c.onmousemove=e=>{mouseSX=e.clientX;mouseSY=e.clientY};
+c.oncontextmenu=e=>e.preventDefault();
+c.onmousedown=e=>{
+  if(!started||welcomeOpen)return;
+  if(e.button===2){ghost=wFrom=null;return}
+  if(ghost){
+    const pi=placeInfo();
+    if(!pi.valid)return toast('Cannot build there');
+    if(money<ghost.c)return toast('Not enough money');
+    if(ghost.t==='pad'&&parts<5)return toast('Shipyard needs 5 parts (labs make them)');
+    if(ghost.t==='hq'&&mods.some(m=>m.pid===pi.pid&&m.t==='hq'&&m.o===uid))return toast('You already have an HQ here');
+    money-=ghost.c;
+    if(ghost.t==='pad'){parts-=5;const p=P(pi.pid);Object.assign(rk,{built:true,pid:pi.pid,th:pi.th,a:pi.th,vx:0,vy:0,fuel:100,landed:true,x:p.cx+Math.cos(pi.th)*(p.R+22),y:p.cy+Math.sin(pi.th)*(p.R+22)})}
+    addMod(newMod(ghost.t,pi.pid,pi.th,pi.h,ghost.g),true);
+    if(!e.shiftKey)ghost=null;
+  } else if(wFrom){
+    const[mxw,myw]=mouseWorld();
+    const target=mods.find(m=>m.pid===pl.pid&&['lab','pc','server'].includes(m.t)&&Math.hypot(modPos(m)[0]-mxw,modPos(m)[1]-myw)<60);
+    if(target&&(!canWireWith(target)||!canWireWith(wFrom)))return toast("Only friends can wire into another player's structures");
+    if(target&&!wires.some(w=>w.aId===wFrom.id&&w.bId===target.id)){
+      const w={id:'wire_'+Date.now()+Math.random().toString(36).slice(2,5),aId:wFrom.id,bId:target.id,a:wFrom,b:target,p:0};
+      wires.push(w);broadcastP2P({type:'build_wire',wire:{id:w.id,aId:w.aId,bId:w.bId}});wFrom=null;
+    }
+  }
+};
+addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
+onkeyup=e=>{keys[e.code]=false};
+onkeydown=e=>{
+  const tag=e.target.tagName;
+  if(tag==='INPUT'||tag==='TEXTAREA'){
+    if(e.target.id==='chat-input'){
+      if(e.code==='Enter'){const v=e.target.value.trim();if(v)sendChat(v);closeChat()}else if(e.code==='Escape')closeChat();
+    } else if(e.target.id==='comm-input'){if(e.code==='Enter')sendRelay();else if(e.code==='Escape')closeOS()}
+    else if(e.target.id==='add-code'&&e.code==='Enter')$('add-btn').click();
+    return;
+  }
+  if(!started)return;
+  if(welcomeOpen){if(e.code==='Escape'||e.code==='Enter')showWelcome(false);return}
+  if(e.code==='Space')e.preventDefault();
+  keys[e.code]=true;
+  if(e.code==='Enter'){openChat();e.preventDefault();return}
+  if(e.code==='Escape'){ghost=wFrom=null;closePanels();return}
+  if(e.code==='KeyP'){if(isPublicWorld){pvpEnabled=false;return toast('PvP is permanently disabled on Public Main')}pvpEnabled=!pvpEnabled;toast('PvP '+(pvpEnabled?'ENABLED — you can launch missiles and be hit':'DISABLED — you are protected'))}
+  if(e.code==='KeyV')showBeams=!showBeams;
+  if(e.code==='KeyK')exportSaveFile();
+  if(e.code==='KeyI')showWelcome(true);
+  if(e.code==='KeyH')togglePanel('friends');
+  if(e.code==='KeyG')togglePanel('power');
+  if(e.code==='KeyM')togglePanel('missile');
+  if(e.code==='KeyB')togglePanel('buildp');
+  if(e.code==='KeyR')buyMega('ring');
+  if(QUICK[e.code]){const t=QUICK[e.code];ghost={t,c:DEFS[t].c}}
+  if(pl.inShip&&e.code!=='KeyE')return;
+  if(e.code==='KeyE'){
+    if(!pl.inShip){if(rk.built&&rk.landed&&rk.pid===pl.pid&&arcD(pl.pid,pl.th,rk.th)<90){pl.inShip=true;toast('Boarded. W to launch, A/D to rotate, E to exit when landed')}else toast('Stand next to your rocket (build a Shipyard)')}
+    else if(rk.landed){pl.inShip=false;pl.pid=rk.pid;pl.th=rk.th;pl.h=0;pl.vh=pl.vt=0}else toast('Land on a planet first');
+  }
+  if(e.code==='KeyC'){const m=nearMods().find(i=>i.t==='solar'||i.t==='rect');if(m){wFrom=m;toast('Click a Lab / PC / Server to wire')}}
+  if(e.code==='KeyU'){const m=nearMods().find(i=>i.o===uid);if(m&&m.lv<10&&money>=m.lv*150){money-=m.lv*150;m.lv++;if(m.t==='ant')m.r+=2200;broadcastP2P({type:'upgrade_mod',id:m.id,lv:m.lv})}}
+  if(e.code==='KeyX'){if(isPublicWorld)return toast('Public Main structures are permanent');const m=nearMods().find(i=>i.o===uid);if(m){money+=Math.floor((DEFS[m.t]?.c||0)/2);delMod(m.id,true)}}
+  if(e.code==='KeyF'){
+    const m=nearMods()[0];if(!m)return;
+    if(m.t==='pc')openOS(m);
+    if(m.t==='silo')togglePanel('missile');
+    if(m.t==='rect')togglePanel('power');
+    if(m.t==='tele'){
+      const ring=hasMega(m.pid,'ring');
+      let o=mods.filter(i=>i.t==='tele'&&i!==m&&(i.pid===m.pid||(ring&&hasMega(i.pid,'ring'))));
+      if(o.length){const d=o[Math.floor(Math.random()*o.length)];pl.pid=d.pid;pl.th=d.th;pl.h=d.h||0;pl.vt=pl.vh=0}else toast('No other teleporter reachable')
+    }
+  }
+};
+
+// ---------- save / import / 30-second local recovery ----------
+function makeSaveData(){
+  return {version:'3.2',privateKey:sessionKey||currentRoomId,publicWorld:isPublicWorld,money,research,parts,planets:planets.map(p=>({...p})),modules:mods.map(cleanMod),wires:wires.map(w=>({id:w.id,aId:w.aId,bId:w.bId}))};
+}
+function applySaveData(data){
+  if(!data||!Array.isArray(data.planets)||!data.planets.length||!Array.isArray(data.modules)||!Array.isArray(data.wires))return false;
+  if(data.planets.some(p=>!p||typeof p.id!=='string'||!Number.isFinite(p.cx)||!Number.isFinite(p.cy)||!Number.isFinite(p.R)))return false;
+  if(data.privateKey){const k=cleanPrivateKey(data.privateKey);if(k){sessionKey=k;currentRoomId=k;isPublicWorld=!!data.publicWorld||k===PUBLIC_ROOM_KEY;showPrivateKey();}}
+  planets.length=0;mods.length=0;wires.length=0;
+  for(const k in crysMap)delete crysMap[k];
+  data.planets.forEach(d=>planets.push(mkPlanet(d)));
+  data.modules.forEach(m=>{if(m&&DEFS[m.t]||m&&String(m.t).startsWith('mega_'))mods.push({...m,act:false,p:0})});
+  data.wires.forEach(w=>{const a=mods.find(m=>m.id===w.aId),b=mods.find(m=>m.id===w.bId);if(a&&b)wires.push({...w,a,b,p:0})});
+  money=Number.isFinite(data.money)?data.money:1500;research=Number.isFinite(data.research)?data.research:0;parts=Number.isFinite(data.parts)?data.parts:0;
+  for(const k in contracts)delete contracts[k];missiles.length=0;blasts.length=0;
+  if(!P(pl.pid))Object.assign(pl,{pid:planets[0].id,th:-Math.PI/2,h:0,vt:0,vh:0,inShip:false});
+  if(!P(rk.pid))rk.pid=planets[0].id;
+  return true;
+}
+function saveLocalSession(showNotice=false){
+  if(!started||!planets.length||!isHost)return;
+  const payload={savedAt:Date.now(),room:currentRoomId,save:makeSaveData()};
+  try{localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(payload));lastAutoSave=Date.now();if(showNotice)toast('Reminder: your world was saved to this device automatically');}catch(e){if(showNotice)toast('Autosave failed: browser storage is full or unavailable')}
+}
+function exportSaveFile(){
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(makeSaveData(),null,2)],{type:'application/json'}));
+  a.download=(isPublicWorld?'Outpost_Public_Main':'Outpost_Private_World')+'_'+(currentRoomId||'save')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast(isPublicWorld?'Public Main world exported.':'World exported. Share its private key with invited players only.');
+}
+setInterval(()=>{if(!started)return;saveLocalSession(true);},30000);
+window.addEventListener('beforeunload',()=>saveLocalSession());
+
+// ---------- OS / PC with relay comms ----------
+function openOS(m){activePC=m;$('os').style.display='block';renderOS()}
+function renderOS(){
+  const myAnts=mods.filter(m=>m.o===uid&&m.t==='ant').length,boost=1+mods.filter(m=>m.o===uid&&m.t==='server').length*.4;
+  $('os-stat').textContent='Your antennas: '+myAnts+'  |  Server boost: x'+boost.toFixed(1)+'  |  Link speed: '+Math.round((12+myAnts*10)*boost)+' MB/s';
+  const box=$('os-files');if(!box.dataset.built){box.dataset.built=1;FILES.forEach(f=>box.append(el('div',{className:'row'},el('span',{className:'grow',text:f.name+' — '+f.desc}),el('button',{className:'sbtn',text:'SEND',on:{click:()=>{if(txJob)return;txJob={file:f,prog:0,speed:12+mods.filter(m=>m.o===uid&&m.t==='ant').length*10}}}}))))}
+  const pid=activePC?activePC.pid:pl.pid,conn=reachablePlanets(pid);
+  $('comm-stat').textContent=conn.length?'BEAM LINK ONLINE — reaching: '+conn.map(p=>p.name).join(', '):'NO LINK — build an Antenna on this planet (antennas beam tower-to-tower)';
+  const lg=$('comm-log');lg.textContent='';commLog.slice(-30).forEach(m=>{const d=el('div');d.append(el('b',{text:'['+m.pn+'] '+m.name+': ',style:'color:'+m.col}),document.createTextNode(m.text));lg.append(d)});lg.scrollTop=1e9;
+}
+function antComp(pid){const a=antsCache.filter(m=>m.pid===pid);return a.length?a.map(m=>m._c):[]}
+function reachablePlanets(pid){const cs=antComp(pid);if(!cs.length)return[];return planets.filter(p=>antsCache.some(a=>a.pid===p.id&&cs.includes(a._c)))}
+function planetsConnected(a,b){const cs=antComp(a);return cs.length>0&&antsCache.some(m=>m.pid===b&&cs.includes(m._c))}
+function sendRelay(){
+  const t=$('comm-input').value.trim();if(!t||!activePC)return;
+  if(!reachablePlanets(activePC.pid).length)return toast('No antenna beam link from this planet');
+  $('comm-input').value='';lastRelay=Date.now();
+  const d={type:'relay_chat',pid:activePC.pid,name:playerName,col:suitColor,text:t};
+  commLog.push({pn:P(activePC.pid).name,name:playerName,col:suitColor,text:t});broadcastP2P(d);renderOS();
+}
+$('comm-send').onclick=sendRelay;
+
+// ---------- build menu ----------
+const PAL=['#ef4444','#f97316','#facc15','#22c55e','#06b6d4','#3b82f6','#a855f7','#ec4899','#ffffff','#94a3b8','#475569','#0f172a'];
+let dGrid=Array(144).fill('.'),dTool=0,painting=false;
+const dc=$('designer'),dctx=dc.getContext('2d');
+function drawDesigner(){dctx.fillStyle='#111827';dctx.fillRect(0,0,240,240);for(let r=0;r<12;r++)for(let q=0;q<12;q++){const v=dGrid[r*12+q];if(v!=='.'){dctx.fillStyle=PAL[parseInt(v,36)];dctx.fillRect(q*20,r*20,20,20)}dctx.strokeStyle='#1e293b';dctx.strokeRect(q*20+.5,r*20+.5,19,19)}}
+function paintAt(e){const r=dc.getBoundingClientRect(),q=Math.floor((e.clientX-r.left)/r.width*12),w=Math.floor((e.clientY-r.top)/r.height*12);if(q<0||q>11||w<0||w>11)return;dGrid[w*12+q]=dTool<0?'.':dTool.toString(36);drawDesigner()}
+dc.onmousedown=e=>{painting=true;paintAt(e)};dc.onmousemove=e=>{if(painting)paintAt(e)};addEventListener('mouseup',()=>painting=false);
+PAL.forEach((col,i)=>$('pal').append(el('div',{style:'background:'+col,on:{click:()=>dTool=i}})));
+$('pal').append(el('div',{style:'background:#000;color:#fff;font-size:9px;text-align:center;line-height:18px',text:'ERA',on:{click:()=>dTool=-1}}));
+$('d-clear').onclick=()=>{dGrid=Array(144).fill('.');drawDesigner()};
+$('d-save').onclick=()=>{
+  const cells=dGrid.filter(v=>v!=='.').length;if(!cells)return toast('Paint something first');
+  const list=store('outpost_designs')||[];if(list.length>=12)return toast('Design slots full (12) — delete one');
+  list.push({name:($('d-name').value||'Design '+(list.length+1)).slice(0,20),g:dGrid.join(''),c:20+cells*4});store('outpost_designs',list);renderBuild();toast('Design saved');
+};
+function renderBuild(){
+  const bl=$('b-list');bl.textContent='';
+  for(const t in DEFS){if(t==='custom')continue;bl.append(el('div',{className:'row'},el('span',{className:'grow',text:DEFS[t].n+' — $'+DEFS[t].c}),el('button',{className:'sbtn',text:'SELECT',on:{click:()=>{ghost={t,c:DEFS[t].c};closePanels()}}})))}
+  const bm=$('b-mega');bm.textContent='';
+  for(const k in MEGAS){const d=MEGAS[k],done=hasMega(pl.pid,k);bm.append(el('div',{className:'row'},el('span',{className:'grow',text:d.n+' $'+d.c+' — '+d.d}),el('button',{className:'sbtn gold',text:done?'BUILT':'BUILD',disabled:done,on:{click:()=>{buyMega(k);renderBuild()}}})))}
+  const bc=$('b-custom');bc.textContent='';const list=store('outpost_designs')||[];
+  if(!list.length)bc.append(el('div',{text:'No designs yet — paint one above and save it.',style:'color:#64748b'}));
+  list.forEach((d,i)=>bc.append(el('div',{className:'row'},el('span',{className:'grow',text:d.name+' — $'+d.c}),
+    el('button',{className:'sbtn',text:'PLACE',on:{click:()=>{ghost={t:'custom',c:d.c,g:d.g};closePanels()}}}),
+    el('button',{className:'sbtn',text:'EDIT',on:{click:()=>{dGrid=d.g.split('');drawDesigner()}}}),
+    el('button',{className:'sbtn red',text:'DEL',on:{click:()=>{list.splice(i,1);store('outpost_designs',list);renderBuild()}}}))));
+  drawDesigner();
+}
+
+// ---------- power market ----------
+const powerCap=()=>60+mods.filter(m=>m.o===uid&&m.t==='batt').reduce((s,m)=>s+600*m.lv,0);
+const powerGen=()=>mods.filter(m=>m.o===uid&&m.t==='solar').reduce((s,m)=>s+8*m.lv*(hasMega(m.pid,'dyson',uid)?3:1),0);
+function sendTo(pid,data){data.to=pid;data.sender=myPeerId;if(isHost){if(pid===myPeerId)return;const p=peers[pid];if(p&&p.open)p.send(data)}else if(hostConn&&hostConn.open)hostConn.send(data)}
+function renderPower(){
+  $('p-stat').textContent='Stored: '+Math.floor(energy)+' / '+powerCap()+'   |   Generation: '+powerGen().toFixed(0)+'/s   |   Rectennas: '+mods.filter(m=>m.o===uid&&m.t==='rect').length;
+  const inn=$('p-in');inn.textContent='';const act=$('p-active');act.textContent='';const pp=$('p-players');pp.textContent='';
+  const all=Object.values(contracts);
+  all.filter(k=>k.state==='incoming').forEach(k=>inn.append(el('div',{className:'row'},el('span',{className:'grow',text:k.supName+' offers '+k.rate+'/s power for $'+k.price+'/min'}),
+    el('button',{className:'sbtn green',text:'ACCEPT',on:{click:()=>acceptOffer(k)}}),el('button',{className:'sbtn red',text:'DECLINE',on:{click:()=>cancelContract(k.id)}}))));
+  if(!inn.children.length)inn.append(el('div',{text:'None',style:'color:#64748b'}));
+  all.filter(k=>k.state!=='incoming').forEach(k=>{const sell=k.sup===myPeerId;act.append(el('div',{className:'row'},el('span',{className:'grow',text:(sell?'SELLING to '+k.conName:'BUYING from '+k.supName)+' — $'+k.price+'/min — '+(k.state==='offered'?'awaiting reply':(k.powered?'POWERED':'NO POWER'))}),el('button',{className:'sbtn red',text:'CANCEL',on:{click:()=>cancelContract(k.id)}})))});
+  if(!act.children.length)act.append(el('div',{text:'None',style:'color:#64748b'}));
+  const ps=Object.keys(remotePlayers);
+  ps.forEach(id=>{const rp=remotePlayers[id];pp.append(el('div',{className:'row'},el('span',{className:'grow',text:rp.name||id.slice(0,6)}),el('button',{className:'sbtn gold',text:'OFFER POWER',on:{click:()=>offerPower(id,rp)}})))});
+  if(!ps.length)pp.append(el('div',{text:'No other players in the room',style:'color:#64748b'}));
+}
+function offerPower(pid,rp){
+  const rect=mods.find(m=>m.o===uid&&m.t==='rect');if(!rect)return toast('Build a Rectenna first ([-] key)');
+  const price=Math.max(6,+$('p-price').value||60),rate=Math.min(200,Math.max(5,+$('p-rate').value||20));
+  const k={id:'c_'+uid+Date.now().toString(36),sup:myPeerId,supUid:uid,supName:playerName,con:pid,conUid:rp.uid,conName:rp.name||'?',srcPid:rect.pid,dstPid:null,rate,price,state:'offered',powered:false,acc:0,lastSent:0};
+  contracts[k.id]=k;sendTo(pid,{type:'pw_offer',k:{id:k.id,supUid:uid,supName:playerName,srcPid:k.srcPid,rate,price}});toast('Offer sent to '+k.conName);
+}
+function acceptOffer(k){
+  const rect=mods.find(m=>m.o===uid&&m.t==='rect');if(!rect)return toast('Build a Rectenna to receive power');
+  k.state='active';k.dstPid=rect.pid;k.acc=0;
+  sendTo(k.sup,{type:'pw_accept',id:k.id,dstPid:k.dstPid,conUid:uid,conName:playerName});toast('Power contract active');
+}
+function cancelContract(id){const k=contracts[id];if(!k)return;const other=k.sup===myPeerId?k.con:k.sup;sendTo(other,{type:'pw_cancel',id});delete contracts[id]}
+
+// ---------- missiles ----------
+function renderMissile(){
+  const now=performance.now(),silos=mods.filter(m=>m.o===uid&&m.t==='silo');
+  $('m-info').textContent='PvP: '+(pvpEnabled?'ARMED':'OFF (press P)')+'  |  Missile Centers: '+silos.length+'  |  Money: $'+Math.floor(money);
+  const box=$('m-list');box.textContent='';
+  planets.forEach(p=>{
+    const enemy=mods.filter(m=>m.pid===p.id&&m.o&&m.o!==uid&&!isMega(m)).length;
+    const ready=silos.filter(s=>s.pid!==p.id&&(s.cd||0)<=now),nukeReady=ready.filter(s=>s.lv>=3);
+    box.append(el('div',{className:'row'},el('span',{className:'grow',text:p.name+' — '+enemy+' enemy structures'}),
+      el('button',{className:'sbtn red',text:'MISSILE $'+MISSILE_COST,disabled:!pvpEnabled||!ready.length||money<MISSILE_COST,on:{click:()=>fireMissile(p.id,false)}}),
+      el('button',{className:'sbtn red',text:'NUKE $'+NUKE_COST,disabled:!pvpEnabled||!nukeReady.length||money<NUKE_COST,on:{click:()=>fireMissile(p.id,true)}})));
+  });
+}
+function fireMissile(pid,nuke){
+  const now=performance.now();
+  if(!pvpEnabled)return toast('Enable PvP (P) to launch');
+  const cost=nuke?NUKE_COST:MISSILE_COST;if(money<cost)return toast('Not enough money');
+  const silo=mods.find(s=>s.o===uid&&s.t==='silo'&&s.pid!==pid&&(s.cd||0)<=now&&(!nuke||s.lv>=3));
+  if(!silo)return toast(nuke?'Need a ready level-3 Missile Center on another planet':'No ready Missile Center on another planet');
+  const tp=P(pid),cands=mods.filter(m=>m.pid===pid&&m.o&&m.o!==uid&&!isMega(m));
+  const [ox,oy]=modPos(silo,60);let th=Math.atan2(oy-tp.cy,ox-tp.cx);
+  if(cands.length)th=cands[Math.floor(Math.random()*cands.length)].th;
+  const tx=tp.cx+Math.cos(th)*tp.R,ty=tp.cy+Math.sin(th)*tp.R,dist=Math.hypot(tx-ox,ty-oy);
+  money-=cost;silo.cd=now+(nuke?60000:15000);
+  const m={id:'ms_'+Date.now()+Math.random().toString(36).slice(2,5),x0:ox,y0:oy,x1:tx,y1:ty,dur:Math.max(2500,dist/1.6),nuke,pid,th,from:uid,fromName:playerName};
+  launchMissile(m);broadcastP2P({type:'missile',m});
+}
+function launchMissile(m){
+  m.t0=performance.now();m.done=false;missiles.push(m);
+  sys((m.nuke?'☢ NUKE':'MISSILE')+' launched by '+m.fromName+' at '+(P(m.pid)?P(m.pid).name:'?'));
+  if(!pl.inShip&&pl.pid===m.pid&&m.from!==uid)toast('⚠ INCOMING '+(m.nuke?'NUKE':'MISSILE')+'! Shields up!');
+}
+function explode(m){
+  const p=P(m.pid);if(!p)return;
+  const[ex,ey]=polarToWorld(m.pid,m.th,p.R);
+  blasts.push({x:ex,y:ey,t0:performance.now(),nuke:m.nuke,r:m.nuke?1400:380});
+  const rad=m.nuke?2600:520,dmg=m.nuke?2000:140;
+  if(m.from===uid)return;
+  if(Math.hypot(camPos()[0]-ex,camPos()[1]-ey)<6000&&m.nuke)flash=1;
+  if(!pvpEnabled)return;
+  const mine=mods.filter(x=>x.o===uid&&x.pid===m.pid);
+  if(mine.length){
+    const dome=mine.find(x=>x.t==='mega_dome');
+    if(dome&&(dome.dhp===undefined||dome.dhp>0)){dome.dhp=(dome.dhp===undefined?1500:dome.dhp)-dmg;toast('Dome absorbed the strike');return}
+    const sh=mine.find(x=>x.t==='shield'&&arcD(m.pid,x.th,m.th)<450+x.lv*100+rad*.3&&(x.shp===undefined||x.shp>0));
+    if(sh){sh.shp=(sh.shp===undefined?150*sh.lv:sh.shp)-dmg;toast('Shield generator absorbed the strike');return}
+    let lost=0;
+    for(const x of mine){if(isMega(x))continue;if(arcD(m.pid,x.th,m.th)<rad){x.hp-=dmg;if(x.hp<=0){delMod(x.id,true);lost++}}}
+    if(lost)toast(lost+' of your structures were destroyed by '+m.fromName);
+  }
+  if(!pl.inShip&&pl.pid===m.pid&&arcD(m.pid,pl.th,m.th)<rad){money*=.8;pl.th=Math.random()*TAU;pl.h=0;pl.vh=0;toast('You were killed by '+m.fromName+' (-20% money)')}
+}
+
+// ---------- friends ----------
+let friends=store('outpost_friends')||[],fStatus={},fReq=[],fInv=[];
+const saveFriends=()=>store('outpost_friends',friends);
+function initInbox(){
+  if(inbox||typeof Peer==='undefined')return;
+  try{inbox=new Peer('outpost-inbox-'+uid)}catch(e){return}
+  inbox.on('open',()=>{inboxOk=true});
+  inbox.on('error',err=>{if(err.type==='unavailable-id'){inboxOk=false;toast('Friends offline: this account is open in another tab')}});
+  inbox.on('connection',conn=>conn.on('data',d=>handleInbox(conn,d)));
+}
+function inboxSend(fuid,msg,cb){
+  if(!inbox||!inbox.open){cb&&cb(null);return}
+  let done=false;const cn=inbox.connect('outpost-inbox-'+fuid,{reliable:true});
+  const fin=r=>{if(done)return;done=true;clearTimeout(t);try{cn.close()}catch(e){}cb&&cb(r)};
+  const t=setTimeout(()=>fin(null),4000);
+  cn.on('open',()=>cn.send(msg));cn.on('data',d=>fin(d));cn.on('error',()=>fin(null));
+}
+function addFriend(u,n){if(u===uid)return;const f=friends.find(i=>i.uid===u);if(f){if(n)f.name=n}else friends.push({uid:u,name:n||u});saveFriends()}
+function handleInbox(conn,d){
+  if(!d||!d.type)return;
+  if(d.type==='f_ping')conn.send({type:'f_pong',uid,name:playerName,room:started?currentRoomId:null});
+  else if(d.type==='f_req'){
+    if(friends.some(f=>f.uid===d.uid)){addFriend(d.uid,d.name);inboxSend(d.uid,{type:'f_accept',uid,name:playerName})}
+    else if(!fReq.some(r=>r.uid===d.uid)){fReq.push({uid:d.uid,name:String(d.name).slice(0,16)});toast('Friend request from '+d.name+' (press H)')}
+    conn.send({type:'ack'});
+  }
+  else if(d.type==='f_accept'){addFriend(d.uid,d.name);toast(d.name+' is now your friend');conn.send({type:'ack'})}
+  else if(d.type==='f_invite'){
+    if(friends.some(f=>f.uid===d.uid)){const room=String(d.room).toLowerCase().replace(/[^a-z0-9-]/g,'');fInv.push({uid:d.uid,name:d.name,room});toast(d.name+' invites you to room '+room,[['JOIN',()=>joinRoom(room)]])}
+    conn.send({type:'ack'});
+  }
+}
+function pollFriends(){friends.forEach(f=>inboxSend(f.uid,{type:'f_ping'},r=>{fStatus[f.uid]=r&&r.type==='f_pong'?{on:true,room:r.room,t:Date.now()}:{on:false};if(r&&r.name&&r.name!==f.name){f.name=r.name;saveFriends()}}))}
+setInterval(()=>{if(started)pollFriends()},12000);
+$('add-btn').onclick=()=>{
+  const u=$('add-code').value.trim().toLowerCase();if(!u)return;if(u===uid)return toast("That's your own code");
+  inboxSend(u,{type:'f_req',uid,name:playerName},r=>toast(r&&r.type==='ack'?'Request sent':'Could not reach that player (offline?)'));$('add-code').value='';
+};
+$('copy-code').onclick=()=>{try{navigator.clipboard.writeText(uid.toUpperCase());toast('Code copied')}catch(e){toast('Your code: '+uid.toUpperCase())}};
+function joinRoom(room){
+  room=cleanPrivateKey(room);if(!room||room===sessionKey)return;
+  isPublicWorld=(room===PUBLIC_ROOM_KEY);sessionKey=room;currentRoomId=room;$('room-code').value=room;showPrivateKey();resetWorld();closePanels();toast('Connecting to private world...');initP2P();
+}
+function renderFriends(){
+  const rq=$('f-req');rq.textContent='';
+  fReq.forEach((r,i)=>rq.append(el('div',{className:'row'},el('span',{className:'grow',text:r.name+' ('+r.uid+')'}),
+    el('button',{className:'sbtn green',text:'ACCEPT',on:{click:()=>{addFriend(r.uid,r.name);inboxSend(r.uid,{type:'f_accept',uid,name:playerName});fReq.splice(i,1);pollFriends();renderFriends()}}}),
+    el('button',{className:'sbtn red',text:'NO',on:{click:()=>{fReq.splice(i,1);renderFriends()}}}))));
+  if(!fReq.length)rq.append(el('div',{text:'None',style:'color:#64748b'}));
+  const iv=$('f-inv');iv.textContent='';
+  fInv.forEach((r,i)=>iv.append(el('div',{className:'row'},el('span',{className:'grow',text:r.name+' invites you to '+r.room}),el('button',{className:'sbtn green',text:'JOIN',on:{click:()=>{fInv.splice(i,1);joinRoom(r.room)}}}),el('button',{className:'sbtn red',text:'X',on:{click:()=>{fInv.splice(i,1);renderFriends()}}}))));
+  if(!fInv.length)iv.append(el('div',{text:'None',style:'color:#64748b'}));
+  const fl=$('f-list');fl.textContent='';
+  friends.forEach(f=>{const s=fStatus[f.uid]||{};fl.append(el('div',{className:'row'},
+    el('span',{className:'grow',text:f.name+'  '+(s.on?(s.room?'● in room '+s.room:'● online (menu)'):'○ offline'),style:'color:'+(s.on?'#10b981':'#64748b')}),
+    el('button',{className:'sbtn green',text:'JOIN',disabled:!s.on||!s.room,on:{click:()=>joinRoom(s.room)}}),
+    el('button',{className:'sbtn',text:'INVITE',on:{click:()=>inboxSend(f.uid,{type:'f_invite',uid,name:playerName,room:currentRoomId},r=>toast(r?'Invite sent':'Friend is offline'))}}),
+    el('button',{className:'sbtn red',text:'REMOVE',on:{click:()=>{friends=friends.filter(i=>i.uid!==f.uid);saveFriends();renderFriends()}}})))});
+  if(!friends.length)fl.append(el('div',{text:'No friends yet — share your code!',style:'color:#64748b'}));
+  const fr=$('f-room');fr.textContent='';const ids=Object.keys(remotePlayers);
+  ids.forEach(id=>{const rp=remotePlayers[id];const isF=friends.some(f=>f.uid===rp.uid);fr.append(el('div',{className:'row'},el('span',{className:'grow',text:rp.name||id.slice(0,6)}),
+    isF?el('span',{text:'friend',style:'color:#10b981'}):el('button',{className:'sbtn green',text:'+ FRIEND',disabled:!rp.uid,on:{click:()=>inboxSend(rp.uid,{type:'f_req',uid,name:playerName},r=>toast(r&&r.type==='ack'?'Request sent':'Could not reach them'))}})))});
+  if(!ids.length)fr.append(el('div',{text:'Nobody else here',style:'color:#64748b'}));
+}
+setTimeout(()=>{if(started)pollFriends()},3000);
+
+// ---------- P2P core ----------
+function initP2P(){
+  if(typeof Peer==='undefined'){isHost=true;myPeerId=null;toast('Multiplayer library failed to load, so you are playing solo. Check your connection or ad-blocker and reload.');return}
+  if(peer){try{peer.destroy()}catch(e){}}
+  for(const k in peers)delete peers[k];hostConn=null;isHost=false;myPeerId=null;
+  const hostId=privatePeerId(sessionKey||currentRoomId),p=new Peer(hostId);peer=p;
+  p.on('open',id=>{if(peer!==p)return;isHost=true;myPeerId=id;nextSpawn=Date.now()+SPAWN_MS;setupHostListeners(p);if(isPublicWorld){const b=store(AUTOSAVE_KEY);if(b&&b.room===PUBLIC_ROOM_KEY&&b.save){applySaveData(b.save);sys('Public Main host restored its latest local server backup')}}sys('You are hosting room '+currentRoomId)});
+  p.on('error',err=>{if(peer!==p)return;if(err.type==='unavailable-id')becomeClient(hostId);else if(err.type!=='peer-unavailable')toast('Network: '+err.type)});
+}
+function becomeClient(hostId){
+  try{peer.destroy()}catch(e){}
+  const p=new Peer();peer=p;
+  p.on('open',id=>{if(peer!==p)return;myPeerId=id;connectToHost(hostId,p)});
+  p.on('error',err=>{if(peer!==p)return;if(err.type==='peer-unavailable'){setTimeout(()=>{if(peer===p)initP2P()},500+Math.random()*1500)}});
+}
+function setupHostListeners(p){
+  p.on('connection',conn=>{
+    conn.on('open',()=>{
+      peers[conn.peer]=conn;
+      conn.send({type:'world_state',planets,mods:mods.map(cleanMod),wires:wires.map(w=>({id:w.id,aId:w.aId,bId:w.bId})),nextSpawn,money,research,parts});
+    });
+    conn.on('data',d=>handleP2PData(d,conn.peer));
+    conn.on('close',()=>{const rp=remotePlayers[conn.peer];if(rp)sys((rp.name||'A player')+' left');delete peers[conn.peer];dropPeer(conn.peer);broadcastP2P({type:'player_left',id:conn.peer})});
+  });
+}
+function connectToHost(hostId,p){
+  const hc=p.connect(hostId,{reliable:true});hostConn=hc;
+  hc.on('open',()=>{peers[hostId]=hc;sys('Connected to room '+currentRoomId)});
+  hc.on('data',d=>handleP2PData(d,hostId));
+  hc.on('close',()=>{delete peers[hostId];for(const k in remotePlayers)delete remotePlayers[k];setTimeout(()=>{if(peer===p)connectToHost(hostId,p)},1500)});
+}
+function dropPeer(id){delete remotePlayers[id];for(const k in contracts){const c2=contracts[k];if(c2.sup===id||c2.con===id)delete contracts[k]}}
+function broadcastP2P(data){for(const id in peers)if(peers[id]&&peers[id].open)peers[id].send(data)}
+function relay(data,from){if(!isHost)return;for(const id in peers)if(id!==from&&peers[id].open)peers[id].send(data)}
+function handleP2PData(data,senderId){
+  if(!data||!data.type)return;
+  if(data.to){if(data.to!==myPeerId){if(isHost&&peers[data.to]&&peers[data.to].open)peers[data.to].send(data);return}}
+  const t=data.type;
+  if(t==='player_update'){
+    const sid=isHost?senderId:(data.sender||senderId);if(sid===myPeerId)return;data.sender=sid;
+    const s=data.state;let rp=remotePlayers[sid];
+    if(!rp){rp=remotePlayers[sid]={currX:s.x,currY:s.y};sys((s.name||'A player')+' joined')}
+    Object.assign(rp,{tx:s.x,ty:s.y,dir:s.dir,animTimer:s.animTimer,suit:s.suit,visor:s.visor,name:s.name,pvp:s.pvp,uid:s.uid,friendUids:Array.isArray(s.friendUids)?s.friendUids:[],pid:s.pid,sh:s.sh,ra:s.ra,lastSeen:performance.now()});
+    relay(data,senderId);
+  }
+  else if(t==='build_mod'){
+    const senderUid=isHost?remotePlayers[senderId]?.uid:data.mod?.o;
+    if(data.mod&&senderUid&&data.mod.o===senderUid&&!mods.some(m=>m.id===data.mod.id))mods.push({...data.mod,act:false,p:0});
+    if(isHost)saveLocalSession();relay(data,senderId)
+  }
+  else if(t==='del_mod'){
+    if(!isPublicWorld){const m=mods.find(x=>x.id===data.id),senderUid=remotePlayers[senderId]?.uid;if(!isHost&&m)delMod(data.id,false,true);else if(m&&senderUid&&m.o===senderUid)delMod(data.id,false)}
+    relay(data,senderId)
+  }
+  else if(t==='build_wire'){
+    const senderUid=remotePlayers[senderId]?.uid;
+    const a=mods.find(m=>m.id===data.wire.aId),b=mods.find(m=>m.id===data.wire.bId);
+    const allowed=(m)=>m&&m.o===senderUid || (m&&senderUid&&remotePlayers[senderId]?.friendUids?.includes(m.o)) || (m&&m.o===uid&&friends.some(f=>f.uid===senderUid));
+    if(a&&b&&(!isHost||(allowed(a)&&allowed(b)))&&!wires.some(w=>w.id===data.wire.id))wires.push({...data.wire,a,b,p:0});
+    relay(data,senderId);
+  }
+  else if(t==='upgrade_mod'){const m=mods.find(i=>i.id===data.id);if(m)m.lv=data.lv;relay(data,senderId)}
+  else if(t==='world_replace'){if(isHost)return;applySaveData(data.save);relay(data,senderId)}
+  else if(t==='world_state'){
+    planets.length=0;for(const k in crysMap)delete crysMap[k];data.planets.forEach(d=>planets.push(mkPlanet(d)));
+    mods.length=0;wires.length=0;data.mods.forEach(m=>mods.push({...m,act:false,p:0}));
+    data.wires.forEach(w=>{const a=mods.find(m=>m.id===w.aId),b=mods.find(m=>m.id===w.bId);if(a&&b)wires.push({...w,a,b,p:0})});
+    nextSpawn=data.nextSpawn;if(Number.isFinite(data.money))money=data.money;if(Number.isFinite(data.research))research=data.research;if(Number.isFinite(data.parts))parts=data.parts;if(!P(pl.pid))pl.pid=planets[0].id;
+  }
+  else if(t==='new_planet'){if(!P(data.planet.id)){planets.push(mkPlanet(data.planet));toast('A new world appeared: '+data.planet.name);sys('NEW WORLD DISCOVERED: '+data.planet.name)}relay(data,senderId)}
+  else if(t==='chat'){addChat(String(data.name).slice(0,16),String(data.text).slice(0,160),data.col);relay(data,senderId)}
+  else if(t==='relay_chat'){
+    const sp=P(data.pid);
+    if(sp&&mods.some(m=>m.t==='pc'&&m.o===uid&&planetsConnected(data.pid,m.pid))){
+      lastRelay=Date.now();const pn=sp.name;
+      commLog.push({pn,name:String(data.name).slice(0,16),col:/^#[0-9a-f]{6}$/i.test(data.col)?data.col:'#38bdf8',text:String(data.text).slice(0,160)});
+      if(!activePC)toast('📡 Beam relay from '+data.name+' @ '+pn+' — use a PC (F)');
+    }
+    relay(data,senderId);
+  }
+  else if(t==='missile'){if(!isPublicWorld&&!missiles.some(m=>m.id===data.m.id))launchMissile({...data.m});relay(data,senderId)}
+  else if(t==='pw_offer'){const k=data.k;contracts[k.id]={id:k.id,sup:data.sender,supUid:k.supUid,supName:String(k.supName).slice(0,16),con:myPeerId,conUid:uid,conName:playerName,srcPid:k.srcPid,dstPid:null,rate:k.rate,price:k.price,state:'incoming',powered:false,acc:0};toast(k.supName+' offers power for $'+k.price+'/min (press G)')}
+  else if(t==='pw_accept'){const k=contracts[data.id];if(k&&k.sup===myPeerId){k.state='active';k.dstPid=data.dstPid;k.conUid=data.conUid;toast(data.conName+' accepted your power offer')}}
+  else if(t==='pw_state'){const k=contracts[data.id];if(k)k.powered=!!data.powered}
+  else if(t==='pw_cancel'){if(contracts[data.id]){toast('Power contract ended');delete contracts[data.id]}}
+  else if(t==='pay'){money+=data.amt}
+  else if(t==='player_left'){delete remotePlayers[data.id];dropPeer(data.id)}
+}
+setInterval(()=>{
+  if(!myPeerId)return;
+  const[x,y]=camPos();
+  broadcastP2P({type:'player_update',sender:myPeerId,state:{uid,name:playerName,suit:suitColor,visor:visorColor,x,y,pid:pl.pid,dir:pl.dir,animTimer:pl.animTimer,sh:pl.inShip,ra:rk.a,pvp:isPublicWorld?false:pvpEnabled,friendUids:friends.map(f=>f.uid)}});
+},33);
+
+// ---------- update ----------
+function updateAntennas(){
+  antsCache=mods.filter(m=>m.t==='ant');antLinks.length=0;
+  for(const a of antsCache){a._pos=modPos(a,46+a.lv*8);a.links=0;a._c=-1}
+  for(let i=0;i<antsCache.length;i++)for(let j=i+1;j<antsCache.length;j++){
+    const a=antsCache[i],b=antsCache[j];
+    if(a.links>=5||b.links>=5)continue;
+    if(Math.hypot(a._pos[0]-b._pos[0],a._pos[1]-b._pos[1])<=((a.r||2800)+(b.r||2800))*.9){a.links++;b.links++;antLinks.push([a,b])}
+  }
+  let cid=0;
+  for(const a of antsCache){if(a._c>=0)continue;a._c=cid;const st=[a];while(st.length){const n=st.pop();for(const[u,v]of antLinks){const o=u===n?v:(v===n?u:null);if(o&&o._c<0){o._c=cid;st.push(o)}}}cid++}
+}
+let hostCheck=0;
+function update(dt){
+  const now=performance.now();if(isPublicWorld)pvpEnabled=false;
+  for(const s of stars){s.x=(s.x+s.v*dt)%4e3;s.y=(s.y+s.v*.2*dt)%4e3}
+  if(Math.abs(pl.vt)>10&&!pl.inShip)pl.animTimer+=dt*14;else pl.animTimer=0;
+  for(const pid in remotePlayers){
+    const rp=remotePlayers[pid];
+    if(rp.lastSeen&&now-rp.lastSeen>4000){delete remotePlayers[pid];continue}
+    if(rp.tx!==undefined){if(Math.hypot(rp.tx-rp.currX,rp.ty-rp.currY)>1500){rp.currX=rp.tx;rp.currY=rp.ty}else{rp.currX+=(rp.tx-rp.currX)*.25;rp.currY+=(rp.ty-rp.currY)*.25}}
+  }
+  if(isHost&&Date.now()>=nextSpawn){nextSpawn+=SPAWN_MS;if(planets.length<24)spawnPlanet()}
+  updateAntennas();
+
+  // power & rectennas
+  const mine=mods.filter(m=>m.o===uid);
+  const cap=powerCap();energy=Math.min(cap,energy+powerGen()*dt);
+  for(const m of mods)if(m.t==='rect')m.pw=false;
+  for(const id in contracts){
+    const k=contracts[id];if(k.state!=='active')continue;
+    if(k.sup===myPeerId){
+      const need=k.rate*dt;let pw=energy>=need;if(pw)energy-=need;
+      if(pw!==k.powered||now-(k.lastSent||0)>1000){k.powered=pw;k.lastSent=now;sendTo(k.con,{type:'pw_state',id:k.id,powered:pw})}
+    } else if(k.con===myPeerId){
+      k.acc+=k.price/60*dt;
+      if(k.acc>=1){if(money>=k.acc){money-=k.acc;sendTo(k.sup,{type:'pay',amt:k.acc});k.acc=0}else{toast('Out of money — power contract cancelled');cancelContract(k.id);continue}}
+      if(k.powered)for(const m of mine)if(m.t==='rect'&&m.pid===k.dstPid)m.pw=true;
+    }
+  }
+  for(const m of mine){
+    if(m.t==='shield'){const mx=150*m.lv;if(m.shp===undefined)m.shp=mx;m.shp=Math.min(mx,m.shp+4*dt)}
+    if(m.t==='mega_dome'){if(m.dhp===undefined)m.dhp=1500;m.dhp=Math.min(1500,m.dhp+8*dt)}
+  }
+
+  // labs
+  const serverBoost=1+mine.filter(m=>m.t==='server').length*.4;
+  for(const m of mods)m.act=false;
+  for(const w of wires){
+    const on=w.a.t==='solar'||(w.a.t==='rect'&&w.a.pw);
+    if(on)w.b.act=true;w.p=(w.p+dt*2.5)%1;
+    if(w.b.t==='lab'&&w.b.act&&w.b.o===uid){
+      const mult=(overUntil>now?2:1)*(hasMega(w.b.pid,'dyson',uid)?1.5:1)*(hasMega(w.b.pid,'core',uid)?2:1);
+      const rate=(w.a.lv*w.b.lv)*serverBoost*mult;
+      money+=22*rate*dt;research+=12*rate*dt;
+      if((w.b.p+=.1*dt)>=1){w.b.p-=1;parts++}
+    }
+  }
+  if(autoUntil>now)money+=50*dt;
+  if(txJob){
+    txJob.prog+=txJob.speed*serverBoost*dt;
+    $('tx-bar').style.width=Math.min(100,txJob.prog/txJob.file.size*100)+'%';
+    $('tx-txt').textContent='TRANSMITTING '+txJob.file.name+'... '+Math.round(txJob.prog/txJob.file.size*100)+'% ('+Math.round(txJob.speed*serverBoost)+' MB/s)';
+    if(txJob.prog>=txJob.file.size){
+      const id=txJob.file.id;
+      if(id==='scan')money+=450;if(id==='mine')autoUntil=now+45000;if(id==='over')overUntil=now+45000;
+      if(id==='flux')mine.filter(m=>m.t==='ant').forEach(a=>a.r*=1.5);
+      $('tx-txt').textContent='EXECUTED '+txJob.file.name+'!';txJob=null;
+    }
+  }
+
+  // missiles & blasts
+  for(let i=missiles.length-1;i>=0;i--){const m=missiles[i];if(now>=m.t0+m.dur){explode(m);missiles.splice(i,1)}}
+  for(let i=blasts.length-1;i>=0;i--)if(now-blasts[i].t0>2600)blasts.splice(i,1);
+  flash=Math.max(0,flash-dt*.8);
+
+  // player / rocket
+  if(!pl.inShip){
+    const p=P(pl.pid)||planets[0];pl.pid=p.id;
+    pl.vh-=p.g*dt;
+    if(keys.KeyA||keys.ArrowLeft){pl.dir=-1;pl.vt=-260}else if(keys.KeyD||keys.ArrowRight){pl.dir=1;pl.vt=260}else pl.vt*=.8;
+    if((keys.KeyW||keys.ArrowUp)&&pl.jet>0){pl.vh+=(p.g+380)*dt;pl.jet=Math.max(0,pl.jet-28*dt)}
+    const oldTh=pl.th;pl.th=nA(pl.th+pl.vt*dt/(p.R+pl.h+10));
+    for(const m of mods){
+      if(m.pid!==pl.pid||m.t!=='wall')continue;
+      if(pl.h<m.h+50&&pl.h+30>m.h){const dn=arcD(pl.pid,pl.th,m.th),dold=arcD(pl.pid,oldTh,m.th);if(dn<13&&dn<dold){pl.th=oldTh;pl.vt=0;break}}
+    }
+    pl.h+=pl.vh*dt;
+    const gh=supportH(pl.pid,pl.th,pl.h);
+    if(pl.h<=gh){pl.h=gh;pl.vh=0;pl.jet=Math.min(100,pl.jet+55*dt)}
+    [pl.x,pl.y]=polarToWorld(pl.pid,pl.th,p.R+pl.h+10);
+    // mining
+    mining=null;
+    if(keys.Space){
+      for(const cr of crysMap[pl.pid]||[]){
+        if(cr.dead>now)continue;
+        if(arcD(pl.pid,cr.th,pl.th)<70&&pl.h<60){mining=cr;cr.hp-=90*dt;if(cr.hp<=0){money+=cr.v;cr.dead=now+20000;cr.hp=40}break}
+      }
+    }
+  } else {
+    if(rk.landed){rk.fuel=Math.min(100,rk.fuel+35*dt);if((keys.KeyW||keys.ArrowUp)&&rk.fuel>0)rk.landed=false}
+    if(!rk.landed){
+      let ax=0,ay=0;
+      for(const p of planets){const dx=p.cx-rk.x,dy=p.cy-rk.y,d=Math.max(1,Math.hypot(dx,dy));if(d<p.R*7){const gg=p.g*.55*Math.pow(p.R/Math.max(d,p.R),2);ax+=dx/d*gg;ay+=dy/d*gg}}
+      const bd=Math.max(1,Math.hypot(rk.x,rk.y));
+      if(bd<9000){const gg=3e9/(bd*bd);ax-=rk.x/bd*gg;ay-=rk.y/bd*gg}
+      if(bd<260){toast('Your rocket was swallowed by the singularity!');sys(playerName+' fell into the black hole');pl.inShip=false;const h=P('p0')||planets[0];pl.pid=h.id;pl.th=-Math.PI/2;pl.h=0;rk.landed=true;rk.pid=h.id;rk.th=-Math.PI/2;rk.a=rk.th;[rk.x,rk.y]=polarToWorld(h.id,rk.th,h.R+22);rk.vx=rk.vy=0;return}
+      rk.vx+=ax*dt;rk.vy+=ay*dt;
+      if(keys.KeyA||keys.ArrowLeft)rk.a-=2.5*dt;if(keys.KeyD||keys.ArrowRight)rk.a+=2.5*dt;
+      if((keys.KeyW||keys.ArrowUp)&&rk.fuel>0){rk.vx+=Math.cos(rk.a)*750*dt;rk.vy+=Math.sin(rk.a)*750*dt;rk.fuel=Math.max(0,rk.fuel-6*dt)}
+      const k=1-.08*dt;rk.vx*=k;rk.vy*=k;const sp=Math.hypot(rk.vx,rk.vy);if(sp>1600){rk.vx*=1600/sp;rk.vy*=1600/sp}
+      rk.x+=rk.vx*dt;rk.y+=rk.vy*dt;
+      for(const p of planets){
+        const dx=rk.x-p.cx,dy=rk.y-p.cy,d=Math.hypot(dx,dy);
+        if(d<p.R+21){const th=Math.atan2(dy,dx);rk.x=p.cx+Math.cos(th)*(p.R+22);rk.y=p.cy+Math.sin(th)*(p.R+22);rk.vx=rk.vy=0;rk.a=th;rk.landed=true;rk.pid=p.id;rk.th=th;break}
+      }
+    }
+    pl.x=rk.x;pl.y=rk.y;
+  }
+  // camera
+  const target=pl.inShip?-Math.PI/2-rk.a:-Math.PI/2-pl.th;
+  camRot+=nA(target-camRot)*Math.min(1,dt*6);
+}
+
+// ---------- drawing ----------
+const CPAL=PAL;
+function drawMod(t,lv,gh,valid,act,m){
+  const now=performance.now(),pulse=.5+.5*Math.sin(now*.004+(m&&m.id?m.id.length:0));
+  const accent=gh?(valid?'#10b981':'#ef4444'):null;
+  ctx.save();
+  if(gh)ctx.globalAlpha=.58;
+  ctx.lineJoin='round';ctx.lineCap='round';ctx.textAlign='center';ctx.font='9px monospace';
+  const metal=accent||'#64748b',dark=accent||'#172536',cyan=accent||'#38bdf8';
+  const glow=(color,blur=12)=>{ctx.shadowColor=color;ctx.shadowBlur=blur};
+  const panel=(x,y,w,h,fill,stroke='#64748b')=>{ctx.fillStyle=fill;ctx.fillRect(x,y,w,h);ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.strokeRect(x,y,w,h)};
+  if(t==='floor'){
+    panel(-36,0,72,12,accent||'#334155','#7dd3fc');
+    ctx.strokeStyle='rgba(148,163,184,.45)';for(let x=-24;x<36;x+=12){ctx.beginPath();ctx.moveTo(x,1);ctx.lineTo(x,11);ctx.stroke()}
+  } else if(t==='wall'){
+    panel(-9,-54,18,54,accent||'#334155','#94a3b8');
+    ctx.fillStyle='#94a3b8';ctx.fillRect(-12,-54,24,5);ctx.fillStyle='#0f172a';ctx.fillRect(-5,-44,10,35);
+    ctx.fillStyle='#38bdf8';ctx.fillRect(-2,-40,4,25);
+  } else if(t==='hq'){
+    glow('#38bdf8',12);panel(-47,-48,94,48,accent||'#0c1929','#38bdf8');ctx.shadowBlur=0;
+    ctx.fillStyle='#1e3a5f';ctx.fillRect(-38,-39,76,30);ctx.fillStyle='#7dd3fc';ctx.fillRect(-7,-34,14,25);
+    ctx.fillStyle='#38bdf8';ctx.fillRect(-43,-8,86,4);ctx.fillStyle='#cbd5e1';ctx.fillText('HQ',0,-18);
+    ctx.fillStyle='#facc15';ctx.fillRect(-34,-45,7,4);ctx.fillRect(27,-45,7,4);
+  } else if(t==='server'){
+    glow('#10b981',9);panel(-21,-43,42,43,accent||'#101d2a','#10b981');ctx.shadowBlur=0;
+    for(let i=0;i<3;i++){panel(-15,-36+i*12,30,8,'#07131b','#25634f');ctx.fillStyle='#34d399';ctx.fillRect(-11,-33+i*12,4,2);ctx.fillStyle='#6ee7b7';ctx.fillRect(-4,-33+i*12,17,2)}
+    ctx.fillStyle='#10b981';ctx.fillRect(-26,-5,52,5);
+  } else if(t==='custom'&&m&&m.g){
+    for(let i=0;i<144;i++){const v=m.g[i];if(v==='.')continue;ctx.fillStyle=accent||CPAL[parseInt(v,36)];ctx.fillRect(-36+(i%12)*6,-72+Math.floor(i/12)*6,6,6)}
+    ctx.strokeStyle='#cbd5e1';ctx.strokeRect(-36,-72,72,72);
+  } else if(t==='mega_core'){
+    glow('#a78bfa',22);const h=150;
+    const gr=ctx.createLinearGradient(0,-h,0,0);gr.addColorStop(0,'#c4b5fd');gr.addColorStop(1,'#312e81');ctx.fillStyle=gr;ctx.fillRect(-16,-h,32,h);
+    ctx.fillStyle='#ddd6fe';ctx.beginPath();ctx.arc(0,-h-8,13+Math.sin(now/300)*2,0,TAU);ctx.fill();
+    ctx.strokeStyle='#a78bfa';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(0,-h-8,28,9,now/500,0,TAU);ctx.stroke();ctx.shadowBlur=0;
+  } else if(t.startsWith('mega_')) {
+  } else {
+    // Common reinforced foundation and trim
+    panel(-35,-9,70,13,accent||'#26384a','#7890a8');
+    ctx.fillStyle='#94a3b8';ctx.fillRect(-29,-7,58,2);
+    if(t==='solar'){
+      ctx.fillStyle='#94a3b8';ctx.fillRect(-3,-38,6,30);ctx.fillRect(-17,-12,34,4);
+      for(const side of [-1,1]){
+        const x=side===-1?-39:5;
+        const gr=ctx.createLinearGradient(0,-53,0,-36);gr.addColorStop(0,accent||'#38bdf8');gr.addColorStop(1,'#102b4a');
+        ctx.fillStyle=gr;ctx.fillRect(x,-53,34,16);ctx.strokeStyle='#7dd3fc';ctx.lineWidth=1;ctx.strokeRect(x,-53,34,16);
+        ctx.strokeStyle='rgba(186,230,253,.55)';for(let q=1;q<4;q++){ctx.beginPath();ctx.moveTo(x+q*8,-52);ctx.lineTo(x+q*8,-38);ctx.stroke()}
+        ctx.beginPath();ctx.moveTo(x,-45);ctx.lineTo(x+34,-45);ctx.stroke();
+      }
+      glow('#38bdf8',8);ctx.fillStyle='#bae6fd';ctx.fillRect(-3,-39,6,4);ctx.shadowBlur=0;
+    }
+    if(t==='lab'){
+      const h=40+lv*4;const gr=ctx.createLinearGradient(-28,-h,28,0);gr.addColorStop(0,accent||'#475569');gr.addColorStop(.5,'#17283a');gr.addColorStop(1,'#0b1420');
+      panel(-28,-h-8,56,h,gr,'#a78bfa');ctx.fillStyle='#a78bfa';ctx.fillRect(-22,-h-2,44,3);
+      ctx.fillStyle=act?'#d8b4fe':'#7c3aed';glow('#a78bfa',12);ctx.beginPath();ctx.arc(0,-h+10,7+2*pulse,0,TAU);ctx.fill();ctx.shadowBlur=0;
+      ctx.fillStyle='#c4b5fd';ctx.fillRect(-19,-13,38,4);
+    }
+    if(t==='pc'){
+      panel(-23,-42,46,32,accent||'#26384a','#94a3b8');glow('#10b981',9);ctx.fillStyle=act?'#86efac':'#0e7490';ctx.fillRect(-17,-36,34,19);ctx.shadowBlur=0;
+      ctx.strokeStyle='#67e8f9';ctx.strokeRect(-17,-36,34,19);ctx.fillStyle='#cbd5e1';ctx.fillRect(-3,-10,6,5);ctx.fillRect(-12,-5,24,3);
+    }
+    if(t==='tele'){
+      glow('#38bdf8',12);ctx.strokeStyle=accent||'#38bdf8';ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(0,-8,28,8,0,0,TAU);ctx.stroke();
+      ctx.strokeStyle='rgba(125,211,252,.8)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,-8,18,5,0,0,TAU);ctx.stroke();
+      ctx.fillStyle='#7dd3fc';ctx.fillRect(-2,-34,4,25);ctx.shadowBlur=0;
+      for(let i=0;i<3;i++){ctx.globalAlpha=.45+.4*Math.sin(now/180+i);ctx.fillStyle='#67e8f9';ctx.beginPath();ctx.arc(Math.cos(now/400+i*2)*12,-22+Math.sin(now/300+i)*5,2,0,TAU);ctx.fill()}ctx.globalAlpha=gh?.58:1;
+    }
+    if(t==='ant'){
+      const h=48+lv*9;
+      ctx.strokeStyle='#64748b';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-13,-8);ctx.lineTo(0,-h);ctx.lineTo(13,-8);ctx.stroke();
+      ctx.strokeStyle='#cbd5e1';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,-h);ctx.lineTo(0,-5);ctx.stroke();
+      ctx.fillStyle='#94a3b8';ctx.fillRect(-18,-10,36,4);
+      ctx.save();ctx.translate(0,-h);
+      ctx.rotate(Math.sin(now/1200)*.12);
+      ctx.fillStyle='#64748b';ctx.fillRect(-4,-10,8,12);
+      ctx.fillStyle='#cbd5e1';ctx.beginPath();ctx.moveTo(-21,-11);ctx.lineTo(0,-22);ctx.lineTo(21,-11);ctx.lineTo(0,-3);ctx.closePath();ctx.fill();
+      ctx.strokeStyle='#38bdf8';ctx.lineWidth=2;ctx.stroke();
+      glow('#38bdf8',13);ctx.fillStyle='#7dd3fc';ctx.beginPath();ctx.arc(0,-12,3+2*pulse,0,TAU);ctx.fill();ctx.shadowBlur=0;
+      // Narrow directional uplink beam, not a decorative ring
+      if(showBeams&&!gh){
+        const bg=ctx.createLinearGradient(0,-28,0,-190);bg.addColorStop(0,'rgba(56,189,248,.48)');bg.addColorStop(1,'rgba(56,189,248,0)');
+        ctx.fillStyle=bg;ctx.beginPath();ctx.moveTo(-3,-25);ctx.lineTo(-19,-178);ctx.lineTo(19,-178);ctx.lineTo(3,-25);ctx.closePath();ctx.fill();
+        ctx.strokeStyle='rgba(125,211,252,.72)';ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(0,-26);ctx.lineTo(0,-184);ctx.stroke();
+        for(let i=0;i<3;i++){const yy=-35-((now*.12+i*57)%140);ctx.fillStyle='#e0f2fe';ctx.globalAlpha=.8;ctx.beginPath();ctx.arc(0,yy,1.5,0,TAU);ctx.fill()}
+        ctx.globalAlpha=gh?.58:1;
+      }
+      ctx.restore();
+    }
+    if(t==='rect'){
+      // Elevated pedestal and broad parabolic rectenna dish
+      ctx.fillStyle='#475569';ctx.fillRect(-4,-29,8,23);ctx.fillRect(-13,-8,26,4);
+      const dish=ctx.createLinearGradient(-24,-50,24,-30);dish.addColorStop(0,accent||'#fef3c7');dish.addColorStop(.5,'#a16207');dish.addColorStop(1,'#facc15');
+      ctx.fillStyle=dish;ctx.beginPath();ctx.moveTo(-29,-43);ctx.quadraticCurveTo(0,-23,29,-43);ctx.quadraticCurveTo(0,-34,-29,-43);ctx.fill();
+      ctx.strokeStyle=accent||'#fde68a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-29,-43);ctx.quadraticCurveTo(0,-23,29,-43);ctx.stroke();
+      ctx.strokeStyle='#cbd5e1';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,-36);ctx.lineTo(0,-49);ctx.stroke();
+      glow('#fde047',10);ctx.fillStyle='#fff7ae';ctx.beginPath();ctx.arc(0,-50,3+2*pulse,0,TAU);ctx.fill();ctx.shadowBlur=0;
+      // Visible narrow uplink/downlink column rising from the dish
+      if(showBeams&&!gh){
+        const beam=ctx.createLinearGradient(0,-52,0,-205);beam.addColorStop(0,'rgba(250,204,21,.55)');beam.addColorStop(.45,'rgba(253,224,71,.19)');beam.addColorStop(1,'rgba(250,204,21,0)');
+        ctx.fillStyle=beam;ctx.beginPath();ctx.moveTo(-3,-51);ctx.lineTo(-15,-202);ctx.lineTo(15,-202);ctx.lineTo(3,-51);ctx.closePath();ctx.fill();
+        ctx.strokeStyle='rgba(254,240,138,.8)';ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(0,-51);ctx.lineTo(0,-207);ctx.stroke();
+        for(let i=0;i<3;i++){const yy=-57-((now*.16+i*49)%142);ctx.fillStyle='#fff7ae';ctx.globalAlpha=.9;ctx.beginPath();ctx.arc(0,yy,1.8,0,TAU);ctx.fill()}
+        ctx.globalAlpha=gh?.58:1;
+      }
+    }
+    if(t==='batt'){
+      const gr=ctx.createLinearGradient(-20,-34,20,-4);gr.addColorStop(0,accent||'#166534');gr.addColorStop(1,'#071d17');panel(-20,-36,40,32,gr,'#22c55e');
+      ctx.fillStyle='#86efac';ctx.fillRect(-5,-42,10,6);const f=m&&m.o===uid?Math.min(1,energy/powerCap()):.5;
+      ctx.fillStyle='#22c55e';ctx.fillRect(-15,-7-23*f,30,23*f);ctx.strokeStyle='#bbf7d0';ctx.strokeRect(-15,-30,30,23);
+    }
+    if(t==='silo'){
+      const gr=ctx.createLinearGradient(-12,-72,12,-8);gr.addColorStop(0,'#94a3b8');gr.addColorStop(1,'#26384a');panel(-13,-57,26,49,accent||gr,'#cbd5e1');
+      ctx.fillStyle='#475569';ctx.fillRect(-18,-14,36,6);ctx.fillStyle='#ef4444';ctx.beginPath();ctx.moveTo(-9,-57);ctx.lineTo(0,-79);ctx.lineTo(9,-57);ctx.fill();
+      ctx.fillStyle=m&&(m.cd||0)>now?'#f59e0b':'#10b981';ctx.fillRect(-9,-49,18,3);
+      ctx.fillStyle='#94a3b8';ctx.fillRect(-7,-38,14,15);
+    }
+    if(t==='shield'){
+      glow('#818cf8',10);ctx.fillStyle=accent||'#4f46e5';ctx.fillRect(-7,-38,14,30);ctx.beginPath();ctx.arc(0,-40,10,0,TAU);ctx.fill();ctx.shadowBlur=0;
+      const rad=450+lv*100;ctx.fillStyle='rgba(99,102,241,.08)';ctx.strokeStyle='rgba(129,140,248,.55)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,rad,Math.PI,0);ctx.fill();ctx.stroke();
+    }
+    if(t==='pad'){
+      ctx.fillStyle='#64748b';ctx.fillRect(-42,-7,84,7);ctx.fillStyle='#cbd5e1';ctx.fillRect(-37,-12,74,4);
+      ctx.fillStyle='#38bdf8';for(let i=-1;i<=1;i++)ctx.fillRect(i*24-2,-3,4,2);
+    }
+  }
+  ctx.restore();
+}
+function atPolar(p,th,d,fn){ctx.save();ctx.translate(p.cx,p.cy);ctx.rotate(th+Math.PI/2);ctx.translate(0,-d);fn();ctx.restore()}
+function drawPlayer(px,py,ang,dir,anim,body,visor,label,pvp){
+  ctx.save();ctx.translate(px,py);ctx.rotate(ang);
+  const walk=anim?Math.sin(anim)*5:0,step=anim?Math.cos(anim)*3:0;
+  const suit=pvp?'#8f2632':body,shade='#172536';
+  // soft ground shadow
+  ctx.save();ctx.globalAlpha=.28;ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(0,8,11,3,0,0,TAU);ctx.fill();ctx.restore();
+  // backpack
+  const grad=ctx.createLinearGradient(-10,-12,10,5);grad.addColorStop(0,'#cbd5e1');grad.addColorStop(1,'#475569');
+  ctx.fillStyle=grad;ctx.fillRect(-9,-14,18,17);ctx.strokeStyle='#0f172a';ctx.lineWidth=1.5;ctx.strokeRect(-9,-14,18,17);
+  ctx.fillStyle='#38bdf8';ctx.fillRect(-11,-11,3,9);ctx.fillRect(8,-11,3,9);
+  // legs with knee joints and boots
+  for(const side of [-1,1]){
+    const x=side*3+(side===-1?walk:-walk)*.55;
+    ctx.strokeStyle=shade;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(side*3,-2);ctx.lineTo(x+step*side*.3,7);ctx.stroke();
+    ctx.fillStyle='#64748b';ctx.fillRect(x-3,5,6,5);
+    ctx.fillStyle='#cbd5e1';ctx.fillRect(x-3,9,7,3);
+  }
+  // torso armor
+  const tg=ctx.createLinearGradient(-7,-17,8,-1);tg.addColorStop(0,'#f1f5f9');tg.addColorStop(.18,suit);tg.addColorStop(1,shade);
+  ctx.fillStyle=tg;ctx.beginPath();ctx.moveTo(-6,-17);ctx.lineTo(6,-17);ctx.lineTo(8,-4);ctx.lineTo(5,1);ctx.lineTo(-5,1);ctx.lineTo(-8,-4);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(226,232,240,.7)';ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle=visor;ctx.shadowColor=visor;ctx.shadowBlur=8;ctx.fillRect(-3,-12,6,3);ctx.shadowBlur=0;
+  // arms and gloves
+  for(const side of [-1,1]){
+    const swing=Math.sin((anim||0)+(side===1?Math.PI:0))*3;
+    ctx.strokeStyle=suit;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(side*6,-14);ctx.lineTo(side*(10+swing*.25),-7+swing);ctx.stroke();
+    ctx.fillStyle='#cbd5e1';ctx.beginPath();ctx.arc(side*(10+swing*.25),-6+swing,2.5,0,TAU);ctx.fill();
+  }
+  // helmet shell, rim and reflective visor
+  const hg=ctx.createRadialGradient(-2,-23,1,0,-20,9);hg.addColorStop(0,'#f8fafc');hg.addColorStop(.35,'#94a3b8');hg.addColorStop(1,'#334155');
+  ctx.fillStyle=hg;ctx.beginPath();ctx.arc(0,-20,7.5,0,TAU);ctx.fill();
+  ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1.2;ctx.stroke();
+  ctx.fillStyle=visor;ctx.shadowColor=visor;ctx.shadowBlur=10;ctx.beginPath();ctx.ellipse(dir>0?1:-1,-20,5,3.6,0,0,TAU);ctx.fill();ctx.shadowBlur=0;
+  ctx.strokeStyle='rgba(255,255,255,.65)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-2,-22);ctx.lineTo(1,-23);ctx.stroke();
+  ctx.fillStyle='#facc15';ctx.fillRect(-2,-5,4,2);
+  ctx.restore();
+  if(label){ctx.save();ctx.translate(px,py);ctx.rotate(-camRot);ctx.fillStyle='#e2e8f0';ctx.font='bold 10px monospace';ctx.textAlign='center';ctx.shadowColor='#020617';ctx.shadowBlur=5;ctx.fillText(label,0,-39);ctx.restore()}
+}
+function drawRocket(px,py,a,thrust){
+  const now=performance.now();
+  ctx.save();ctx.translate(px,py);ctx.rotate(a+Math.PI/2);
+  if(thrust){
+    const flicker=25+Math.sin(now*.045)*7+Math.random()*5;
+    const flame=ctx.createLinearGradient(0,17,0,17+flicker);flame.addColorStop(0,'#fff7ae');flame.addColorStop(.25,'#fbbf24');flame.addColorStop(.65,'#f97316');flame.addColorStop(1,'rgba(239,68,68,0)');
+    ctx.shadowColor='#fb923c';ctx.shadowBlur=20;ctx.fillStyle=flame;ctx.beginPath();ctx.moveTo(-7,16);ctx.quadraticCurveTo(-4,25,0,17+flicker);ctx.quadraticCurveTo(5,25,7,16);ctx.closePath();ctx.fill();ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(125,211,252,.55)';ctx.beginPath();ctx.ellipse(0,30,12,5,0,0,TAU);ctx.fill();
+  }
+  // fins
+  const fin=ctx.createLinearGradient(-18,8,18,25);fin.addColorStop(0,'#64748b');fin.addColorStop(1,'#cbd5e1');ctx.fillStyle=fin;
+  ctx.beginPath();ctx.moveTo(-8,7);ctx.lineTo(-19,24);ctx.lineTo(-7,20);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(8,7);ctx.lineTo(19,24);ctx.lineTo(7,20);ctx.closePath();ctx.fill();
+  // fuselage
+  const body=ctx.createLinearGradient(-10,0,10,0);body.addColorStop(0,'#475569');body.addColorStop(.28,'#f8fafc');body.addColorStop(.7,'#cbd5e1');body.addColorStop(1,'#334155');
+  ctx.fillStyle=body;ctx.beginPath();ctx.moveTo(-9,17);ctx.lineTo(-9,-23);ctx.quadraticCurveTo(0,-46,9,-23);ctx.lineTo(9,17);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='#64748b';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.fillStyle='#ef4444';ctx.beginPath();ctx.moveTo(-9,-22);ctx.quadraticCurveTo(0,-47,9,-22);ctx.lineTo(7,-17);ctx.lineTo(-7,-17);ctx.closePath();ctx.fill();
+  // cockpit window
+  const glass=ctx.createLinearGradient(-5,-18,5,-8);glass.addColorStop(0,'#e0f2fe');glass.addColorStop(.4,'#38bdf8');glass.addColorStop(1,'#075985');
+  ctx.fillStyle=glass;ctx.beginPath();ctx.ellipse(0,-10,5,7,0,0,TAU);ctx.fill();ctx.strokeStyle='#e0f2fe';ctx.stroke();
+  ctx.fillStyle='#94a3b8';ctx.fillRect(-7,5,14,3);ctx.fillStyle='#facc15';ctx.fillRect(-3,11,6,3);
+  ctx.restore();
+}
+function draw(){
+  const now=performance.now();
+  ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;
+  ctx.fillStyle='#020308';ctx.fillRect(0,0,W,H);
+  const[cx,cy]=camPos(),cp=curPlanet();
+  let skyA=0;
+  if(!pl.inShip)skyA=Math.max(0,1-pl.h/3500);
+  else{const d=Math.hypot(rk.x-cp.cx,rk.y-cp.cy)-cp.R;skyA=Math.max(0,1-d/1800)}
+  ctx.fillStyle='#cbd5e1';
+  for(const s of stars)ctx.fillRect((((s.x-cx*.05)%W)+W)%W,(((s.y-cy*.03)%H)+H)%H,s.s,s.s);
+  if(skyA>0){
+    const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,cp.sky1);g.addColorStop(1,cp.sky2);
+    ctx.globalAlpha=skyA*.92;ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    const sg=ctx.createRadialGradient(W*.78,H*.18,0,W*.78,H*.18,190);sg.addColorStop(0,'rgba(255,255,235,.95)');sg.addColorStop(1,'rgba(255,255,235,0)');
+    ctx.globalAlpha=skyA;ctx.fillStyle=sg;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
+  }
+  const vr=Math.hypot(W,H);
+  ctx.save();ctx.translate(W/2,H*.65);ctx.rotate(camRot);ctx.translate(-cx,-cy);
+
+  // black hole
+  if(Math.hypot(cx,cy)<vr+1700){
+    const g=ctx.createRadialGradient(0,0,0,0,0,1500);
+    g.addColorStop(0,'#000');g.addColorStop(.17,'#000');g.addColorStop(.175,'rgba(255,200,90,.95)');g.addColorStop(.3,'rgba(255,90,30,.5)');g.addColorStop(.6,'rgba(120,40,200,.22)');g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,1500,0,TAU);ctx.fill();
+    ctx.fillStyle='#000';ctx.beginPath();ctx.arc(0,0,260,0,TAU);ctx.fill();
+    ctx.lineWidth=6;ctx.strokeStyle='rgba(255,220,150,.9)';ctx.beginPath();ctx.arc(0,0,262,0,TAU);ctx.stroke();
+    for(let i=0;i<3;i++){ctx.strokeStyle='rgba(255,160,80,.35)';ctx.lineWidth=14;ctx.setLineDash([120,200]);ctx.lineDashOffset=-now*(.12+i*.05);ctx.beginPath();ctx.arc(0,0,420+i*220,0,TAU);ctx.stroke()}
+    ctx.setLineDash([]);
+  }
+  // planets
+  for(const p of planets){
+    if(Math.hypot(cx-p.cx,cy-p.cy)>p.R+vr+400)continue;
+    const ag=ctx.createRadialGradient(p.cx,p.cy,p.R*.98,p.cx,p.cy,p.R+350);ag.addColorStop(0,p.line+'66');ag.addColorStop(1,p.line+'00');
+    ctx.fillStyle=ag;ctx.beginPath();ctx.arc(p.cx,p.cy,p.R+350,0,TAU);ctx.fill();
+    // Lit spherical surface: bright upper-left limb, soft terminator and night-side falloff
+    ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.cx,p.cy,p.R,0,TAU);ctx.fill();
+    const sphere=ctx.createRadialGradient(p.cx-p.R*.34,p.cy-p.R*.42,p.R*.04,p.cx+p.R*.12,p.cy+p.R*.08,p.R*1.12);
+    sphere.addColorStop(0,'rgba(255,255,255,.30)');sphere.addColorStop(.28,'rgba(125,211,252,.10)');sphere.addColorStop(.62,'rgba(2,6,23,.04)');sphere.addColorStop(1,'rgba(0,0,0,.78)');
+    ctx.fillStyle=sphere;ctx.beginPath();ctx.arc(p.cx,p.cy,p.R,0,TAU);ctx.fill();
+    // Subtle curved surface bands clipped to the planetary disc
+    ctx.save();ctx.beginPath();ctx.arc(p.cx,p.cy,p.R*.985,0,TAU);ctx.clip();
+    ctx.globalAlpha=.12;ctx.strokeStyle=p.line;ctx.lineWidth=Math.max(3,p.R*.018);
+    for(let band=-3;band<=3;band++){
+      const yy=p.cy+band*p.R*.22;
+      ctx.beginPath();ctx.ellipse(p.cx-p.R*.12,yy,p.R*.88,p.R*(.08+Math.abs(band)*.012),-.18,Math.PI*1.08,Math.PI*1.92);ctx.stroke();
+    }
+    ctx.restore();ctx.globalAlpha=1;
+    ctx.strokeStyle=p.line;ctx.lineWidth=3;ctx.shadowColor=p.line;ctx.shadowBlur=14;ctx.stroke();ctx.shadowBlur=0;
+    // Thin atmospheric rim
+    ctx.strokeStyle='rgba(255,255,255,.24)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(p.cx-p.R*.015,p.cy-p.R*.015,p.R*.992,Math.PI*1.08,Math.PI*1.88);ctx.stroke();
+    ctx.save();ctx.translate(p.cx,p.cy);ctx.rotate(-camRot);ctx.fillStyle=p.line;ctx.globalAlpha=.5;ctx.font='bold 46px monospace';ctx.textAlign='center';ctx.fillText(p.name,0,0);ctx.restore();
+    for(const cr of crysMap[p.id]||[]){
+      if(cr.dead>now)continue;
+      atPolar(p,cr.th,p.R,()=>{ctx.fillStyle=p.id==='p0'?'#f0abfc':'#67e8f9';ctx.beginPath();ctx.moveTo(-9,0);ctx.lineTo(-4,-22);ctx.lineTo(0,-30);ctx.lineTo(5,-20);ctx.lineTo(10,0);ctx.fill()});
+    }
+  }
+  // Antenna-to-antenna directional microwave links
+  if(showBeams){
+    const hot=Date.now()-lastRelay<2500;
+    for(const[a,b]of antLinks){
+      const[x1,y1]=a._pos,[x2,y2]=b._pos,dx=x2-x1,dy=y2-y1,len=Math.max(1,Math.hypot(dx,dy));
+      if(Math.hypot(cx-(x1+x2)/2,cy-(y1+y2)/2)>len/2+vr)continue;
+      const nx=-dy/len,ny=dx/len,phase=(now*.00055)%1;
+      // Broad translucent beam volume
+      ctx.save();ctx.globalCompositeOperation='lighter';
+      const beam=ctx.createLinearGradient(x1,y1,x2,y2);
+      beam.addColorStop(0,hot?'rgba(250,204,21,.24)':'rgba(56,189,248,.20)');
+      beam.addColorStop(.5,hot?'rgba(253,224,71,.10)':'rgba(56,189,248,.09)');
+      beam.addColorStop(1,hot?'rgba(250,204,21,.24)':'rgba(56,189,248,.20)');
+      ctx.fillStyle=beam;ctx.beginPath();ctx.moveTo(x1+nx*13,y1+ny*13);ctx.lineTo(x2+nx*13,y2+ny*13);ctx.lineTo(x2-nx*13,y2-ny*13);ctx.lineTo(x1-nx*13,y1-ny*13);ctx.closePath();ctx.fill();
+      ctx.shadowColor=hot?'#fde047':'#38bdf8';ctx.shadowBlur=16;
+      ctx.strokeStyle=hot?'rgba(253,224,71,.95)':'rgba(125,211,252,.9)';ctx.lineWidth=2.2;
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.shadowBlur=0;
+      // travelling data packets
+      for(let k=0;k<3;k++){
+        const t=(phase+k/3)%1,px=x1+dx*t,py=y1+dy*t;
+        ctx.fillStyle=hot?'#fff7ae':'#e0f2fe';ctx.beginPath();ctx.arc(px,py,3.5,0,TAU);ctx.fill();
+        ctx.fillStyle=hot?'rgba(253,224,71,.22)':'rgba(56,189,248,.22)';ctx.beginPath();ctx.arc(px,py,9,0,TAU);ctx.fill();
+      }
+      for(const [x,y] of [[x1,y1],[x2,y2]]){
+        ctx.fillStyle=hot?'#fef08a':'#bae6fd';ctx.beginPath();ctx.arc(x,y,5,0,TAU);ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+  // Rectenna power-transfer beams between contracted planets
+  for(const id in contracts){
+    const k=contracts[id];if(k.state!=='active'||!k.powered)continue;
+    const a=mods.find(m=>m.o===k.supUid&&m.t==='rect'&&m.pid===k.srcPid),b=mods.find(m=>m.o===k.conUid&&m.t==='rect'&&m.pid===k.dstPid);
+    if(!a||!b)continue;
+    const[x1,y1]=modPos(a,48),[x2,y2]=modPos(b,48),dx=x2-x1,dy=y2-y1,len=Math.max(1,Math.hypot(dx,dy));
+    if(Math.hypot(cx-(x1+x2)/2,cy-(y1+y2)/2)>len/2+vr)continue;
+    const nx=-dy/len,ny=dx/len,phase=(now*.00035)%1;
+    ctx.save();ctx.globalCompositeOperation='lighter';
+    const energyBeam=ctx.createLinearGradient(x1,y1,x2,y2);
+    energyBeam.addColorStop(0,'rgba(250,204,21,.28)');energyBeam.addColorStop(.5,'rgba(253,224,71,.12)');energyBeam.addColorStop(1,'rgba(250,204,21,.28)');
+    ctx.fillStyle=energyBeam;ctx.beginPath();ctx.moveTo(x1+nx*18,y1+ny*18);ctx.lineTo(x2+nx*18,y2+ny*18);ctx.lineTo(x2-nx*18,y2-ny*18);ctx.lineTo(x1-nx*18,y1-ny*18);ctx.closePath();ctx.fill();
+    ctx.shadowColor='#facc15';ctx.shadowBlur=18;ctx.strokeStyle='rgba(253,224,71,.95)';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.shadowBlur=0;
+    for(let j=0;j<4;j++){
+      const t=(phase+j/4)%1,px=x1+dx*t,py=y1+dy*t;
+      ctx.fillStyle='#fff7ae';ctx.beginPath();ctx.arc(px,py,4,0,TAU);ctx.fill();
+      ctx.fillStyle='rgba(250,204,21,.25)';ctx.beginPath();ctx.arc(px,py,11,0,TAU);ctx.fill();
+    }
+    ctx.restore();
+  }
+  // wires
+  for(const w of wires){
+    if(!w.a||!w.b||w.a.pid!==w.b.pid)continue;
+    const[x1,y1]=modPos(w.a,18),[x2,y2]=modPos(w.b,18);
+    if(Math.hypot(cx-x1,cy-y1)>vr+600)continue;
+    const p=P(w.a.pid),mxx=(x1+x2)/2,myy=(y1+y2)/2,dl=Math.max(1,Math.hypot(p.cx-mxx,p.cy-myy)),qx=mxx+(p.cx-mxx)/dl*30,qy=myy+(p.cy-myy)/dl*30;
+    ctx.strokeStyle='#0284c7';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x1,y1);ctx.quadraticCurveTo(qx,qy,x2,y2);ctx.stroke();
+    if(showBeams){const t=w.p,px=(1-t)*(1-t)*x1+2*(1-t)*t*qx+t*t*x2,py=(1-t)*(1-t)*y1+2*(1-t)*t*qy+t*t*y2;ctx.fillStyle='#38bdf8';ctx.beginPath();ctx.arc(px,py,4,0,TAU);ctx.fill()}
+  }
+  // mods + megas
+  for(const m of mods){
+    const p=P(m.pid);if(!p)continue;
+    if(m.t.startsWith('mega_')&&m.t!=='mega_core'){
+      if(Math.hypot(cx-p.cx,cy-p.cy)>p.R+1600+vr)continue;
+      if(m.t==='mega_ring'){ctx.strokeStyle='rgba(250,204,21,.55)';ctx.lineWidth=8;ctx.setLineDash([60,30]);ctx.lineDashOffset=-now*.03;ctx.beginPath();ctx.arc(p.cx,p.cy,p.R+1200,0,TAU);ctx.stroke();ctx.setLineDash([])}
+      if(m.t==='mega_dyson'){ctx.fillStyle='#fbbf24';for(let i=0;i<28;i++){const a=i/28*TAU+now*.0002;ctx.fillRect(p.cx+Math.cos(a)*(p.R+800)-8,p.cy+Math.sin(a)*(p.R+800)-8,16,16)}}
+      if(m.t==='mega_dome'){ctx.fillStyle='rgba(56,189,248,.05)';ctx.strokeStyle='rgba(56,189,248,.45)';ctx.lineWidth=4;ctx.beginPath();ctx.arc(p.cx,p.cy,p.R+420,0,TAU);ctx.fill();ctx.stroke()}
+      continue;
+    }
+    const[mx2,my2]=modPos(m);if(Math.hypot(cx-mx2,cy-my2)>vr+300)continue;
+    atPolar(p,m.th,p.R+(m.h||0),()=>drawMod(m.t,m.lv,false,true,m.act,m));
+  }
+  if(ghost&&!pl.inShip){const pi=placeInfo(),p=P(pi.pid);atPolar(p,pi.th,p.R+pi.h,()=>drawMod(ghost.t,1,true,pi.valid,false,{g:ghost.g,o:uid}))}
+  // mining laser
+  if(mining&&!pl.inShip){const p=P(pl.pid),[x2,y2]=polarToWorld(pl.pid,mining.th,p.R+14);ctx.save();ctx.globalCompositeOperation='lighter';ctx.shadowColor='#e879f9';ctx.shadowBlur=16;ctx.strokeStyle='rgba(232,121,249,.95)';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(pl.x,pl.y);ctx.lineTo(x2,y2);ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle='#f5d0fe';ctx.beginPath();ctx.arc(x2,y2,5,0,TAU);ctx.fill();ctx.restore()}
+  // players
+  for(const id in remotePlayers){
+    const rp=remotePlayers[id],p=rp.pid&&P(rp.pid);
+    if(rp.sh){drawRocket(rp.currX,rp.currY,rp.ra||0,false);continue}
+    const ang=p?Math.atan2(rp.currY-p.cy,rp.currX-p.cx)+Math.PI/2:0;
+    drawPlayer(rp.currX,rp.currY,ang,rp.dir||1,rp.animTimer||0,rp.suit||'#f59e0b',rp.visor||'#fff',rp.name||id.slice(0,4),rp.pvp);
+  }
+  if(rk.built)drawRocket(rk.x,rk.y,rk.a,pl.inShip&&!rk.landed&&(keys.KeyW||keys.ArrowUp)&&rk.fuel>0);
+  if(!pl.inShip)drawPlayer(pl.x,pl.y,pl.th+Math.PI/2,pl.dir,pl.animTimer,suitColor,visorColor,playerName,pvpEnabled);
+  // missiles
+  for(const m of missiles){
+    const f=Math.min(1,(now-m.t0)/m.dur),dx=m.x1-m.x0,dy=m.y1-m.y0,len=Math.max(1,Math.hypot(dx,dy));
+    const pos=t=>{const bump=Math.sin(Math.PI*t)*len*.12;return[m.x0+dx*t-dy/len*bump,m.y0+dy*t+dx/len*bump]};
+    const[px,py]=pos(f),[qx,qy]=pos(Math.max(0,f-.04));
+    ctx.save();ctx.globalCompositeOperation='lighter';ctx.shadowColor=m.nuke?'#fb923c':'#fca5a5';ctx.shadowBlur=m.nuke?24:14;ctx.strokeStyle=m.nuke?'#fb923c':'#fca5a5';ctx.lineWidth=m.nuke?8:5;ctx.beginPath();ctx.moveTo(qx,qy);ctx.lineTo(px,py);ctx.stroke();ctx.shadowBlur=0;
+    ctx.fillStyle=m.nuke?'#fde047':'#fff';ctx.beginPath();ctx.arc(px,py,m.nuke?14:8,0,TAU);ctx.fill();ctx.fillStyle=m.nuke?'rgba(251,146,60,.3)':'rgba(248,113,113,.3)';ctx.beginPath();ctx.arc(px,py,m.nuke?26:16,0,TAU);ctx.fill();ctx.restore();
+  }
+  for(const b of blasts){
+    const a=(now-b.t0)/2600,r=b.r*Math.min(1,a*3);
+    ctx.globalAlpha=Math.max(0,1-a);ctx.fillStyle=b.nuke?'#fde047':'#fb923c';ctx.beginPath();ctx.arc(b.x,b.y,r,0,TAU);ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=6;ctx.beginPath();ctx.arc(b.x,b.y,r*1.2,0,TAU);ctx.stroke();ctx.globalAlpha=1;
+  }
+  ctx.restore();
+  if(flash>0){ctx.fillStyle='rgba(255,255,255,'+Math.min(1,flash)+')';ctx.fillRect(0,0,W,H)}
+
+  // minimap
+  mctx.fillStyle='#020614';mctx.fillRect(0,0,240,120);
+  let maxR=9000;for(const p of planets)maxR=Math.max(maxR,Math.hypot(p.cx,p.cy)+p.R);
+  const sc=55/maxR;
+  mctx.fillStyle='#000';mctx.strokeStyle='#fb923c';mctx.beginPath();mctx.arc(120,60,4,0,TAU);mctx.fill();mctx.stroke();
+  for(const p of planets){mctx.fillStyle=p.line;mctx.beginPath();mctx.arc(120+p.cx*sc,60+p.cy*sc,Math.max(2,p.R*sc),0,TAU);mctx.fill();if(p.id===cp.id){mctx.strokeStyle='#fff';mctx.stroke()}}
+  mctx.strokeStyle='rgba(250,204,21,.7)';for(const[a,b]of antLinks){mctx.beginPath();mctx.moveTo(120+a._pos[0]*sc,60+a._pos[1]*sc);mctx.lineTo(120+b._pos[0]*sc,60+b._pos[1]*sc);mctx.stroke()}
+  mctx.fillStyle=pvpEnabled?'#ef4444':'#fff';mctx.fillRect(120+cx*sc-2,60+cy*sc-2,4,4);
+
+  // HUD
+  if(now-(draw.lastHud||0)>100){
+    draw.lastHud=now;
+    const left=Math.max(0,nextSpawn-Date.now()),mm=Math.floor(left/60000),ss=String(Math.floor(left/1000)%60).padStart(2,'0');
+    hud.innerHTML='ROOM <strong>'+currentRoomId+'</strong> | <strong>'+(isHost?'HOST':'CLIENT')+'</strong> | $<strong>'+Math.floor(money)+'</strong> | RES <strong>'+Math.floor(research)+'</strong> | PARTS <strong>'+parts+'</strong> | ONLINE <strong>'+(Object.keys(remotePlayers).length+1)+'</strong><br>'
+      +'WORLD <strong>'+cp.name+'</strong> | ⚡ <strong>'+Math.floor(energy)+'/'+powerCap()+'</strong> | '+(pl.inShip?'FUEL <strong>'+Math.floor(rk.fuel)+'</strong>':'JET <strong>'+Math.floor(pl.jet)+'</strong>')+' | <span class="pvp-badge '+(pvpEnabled?'pvp-on':'pvp-off')+'">PVP '+(pvpEnabled?'ON':'OFF')+'</span><br>'
+      +'NEXT WORLD IN <strong>'+mm+':'+ss+'</strong> | WORLDS <strong>'+planets.length+'</strong>';
+  }
+}
+function loop(n){
+  const dt=Math.min(.05,(n-last)/1e3);last=n;
+  if(started&&planets.length){update(dt);draw()}
+  requestAnimationFrame(loop);
+}
+drawDesigner();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
